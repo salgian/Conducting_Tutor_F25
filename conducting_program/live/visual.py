@@ -9,6 +9,11 @@ class VisualManager:
         """Initialize the visual manager with the specified time signature."""
         self.time_signature = time_signature
         self.beat_duration = 0.1  # Duration to show each beat circle
+        self.beat_manager = None  # Will be set by external system
+    
+    def set_beat_manager(self, beat_manager):
+        """Set the beat manager for position data and hit detection."""
+        self.beat_manager = beat_manager
 
     # -------- Frame Management --------
     
@@ -59,17 +64,13 @@ class VisualManager:
     
     def draw_beat_circles(self, frame, current_beat):
         """Draw beat indicator circles based on time signature and highlight current beat."""
-        if current_beat is None:
+        if current_beat is None or self.beat_manager is None:
             return
         
-        # Define circle positions based on time signature
-        match self.time_signature:
-            case "4/4":
-                positions = [(100, 100), (200, 100), (300, 100), (400, 100)]
-            case "3/4":
-                positions = [(150, 100), (250, 100), (350, 100)]
-            case _:
-                return
+        # Get circle positions from beat manager
+        positions = self.beat_manager.get_circle_positions()
+        if not positions:
+            return
         
         # Draw all circles, highlight the current one
         for i, pos in enumerate(positions):
@@ -77,6 +78,35 @@ class VisualManager:
                 cv2.circle(frame, pos, 30, (0, 0, 255), -1)  # Current beat - bright red
             else:
                 cv2.circle(frame, pos, 25, (0, 0, 150), -1)  # Other beats - dim red
+    
+    def draw_setup_circles(self, frame):
+        """Draw all beat circles for setup state (no highlighting)."""
+        if self.beat_manager is None:
+            return
+            
+        # Get circle positions from beat manager
+        positions = self.beat_manager.get_circle_positions()
+        if not positions:
+            return
+        
+        # Draw all circles with same color (no highlighting)
+        for pos in positions:
+            cv2.circle(frame, pos, 25, (0, 0, 150), -1)  # All circles - dim red
+    
+    def draw_processing_circles(self, frame, current_beat):
+        """Draw only the current beat circle for processing state (blinking effect)."""
+        if current_beat is None or self.beat_manager is None:
+            return
+        
+        # Get circle positions from beat manager
+        positions = self.beat_manager.get_circle_positions()
+        if not positions:
+            return
+        
+        # Draw only the current beat circle
+        if 1 <= current_beat <= len(positions):
+            pos = positions[current_beat - 1]
+            cv2.circle(frame, pos, 30, (0, 0, 255), -1)  # Current beat only - bright red
     
     # -------- Midpoint Visualization --------
     
@@ -135,7 +165,9 @@ class VisualManager:
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
         cv2.putText(annotated_frame, "Bring band to attention", (annotated_frame.shape[1] - 10, 60), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-        # TODO: Display all circles based on time signature selected
+        
+        # Display all circles based on time signature (no highlighting)
+        self.draw_setup_circles(annotated_frame)
     
     def display_countdown_visuals(self, annotated_frame, beat_manager):
         """Display visuals for the countdown state."""
@@ -145,10 +177,11 @@ class VisualManager:
         if beat_manager.get_measure_count() == 0:
             cv2.putText(annotated_frame, "Silent Measure", (annotated_frame.shape[1] - 10, 60), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
-            # TODO: Keep text displayed for which system we are in during silent measure
+            # Show all circles during silent measure
+            self.draw_setup_circles(annotated_frame)
         else:
-            if beat_manager.get_show_visual():  # Only show beats if beat manager indicates visual should be shown
-                self.display_all_beats(annotated_frame, beat_manager.get_current_beat())
+            # Always show all circles with rotating highlight during countdown (no blinking)
+            self.draw_beat_circles(annotated_frame, beat_manager.get_current_beat())
             cv2.putText(annotated_frame, f"Measure {beat_manager.get_measure_count()}", (annotated_frame.shape[1] - 10, 60), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
     
@@ -158,8 +191,13 @@ class VisualManager:
         cv2.putText(annotated_frame, "PROCESSING", (annotated_frame.shape[1] - 10, 30), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
         
-        if beat_manager.get_show_visual():  # Display beat only if beat manager indicates visual should be shown
-            self.display_single_beat(annotated_frame, beat_manager.get_current_beat())
+        # Show beat circle briefly around beat timing for natural feel
+        if beat_manager.get_show_visual():
+            # Show blinking effect - only current beat circle
+            self.draw_processing_circles(annotated_frame, beat_manager.get_current_beat())
+            
+            # Check for hand hits and display feedback
+            self.check_and_display_hits(annotated_frame, pose_landmarks, beat_manager)
         
         # Display detection feedback
         if sway_detection.get_sway_flag():
@@ -184,4 +222,58 @@ class VisualManager:
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
         cv2.putText(annotated_frame, "Session Complete", (50, 300), 
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-        # TODO: Implement ending phase functionality
+        
+        # Display final hit percentage if beat manager is available
+        if self.beat_manager:
+            hit_percentage = self.beat_manager.get_hit_percentage()
+            cv2.putText(annotated_frame, f"Hit Rate: {hit_percentage:.1f}%", (50, 350), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+    
+    # -------- Hit/Miss Display --------
+    
+    def display_hit_miss_feedback(self, annotated_frame):
+        """Display hit feedback in the middle of the screen."""
+        if self.beat_manager is None:
+            return
+        
+        hit_status = self.beat_manager.get_current_hit_status()
+        
+        # Show HIT if we hit the beat
+        if hit_status == "hit":
+            frame_height = annotated_frame.shape[0]
+            frame_width = annotated_frame.shape[1]
+            text_x = frame_width // 2 - 50
+            text_y = frame_height // 2
+            cv2.putText(annotated_frame, "HIT!", (text_x, text_y), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 255, 0), 5)
+    
+    def check_and_display_hits(self, annotated_frame, pose_landmarks, metronome_manager):
+        """Check for hand hits and display feedback."""
+        if self.beat_manager is None:
+            return
+        
+        # Get right hand landmarks from MediaPipe
+        right_hand_centroid = self.get_right_hand_centroid(pose_landmarks, annotated_frame)
+        
+        # Check if hand is in circle
+        if right_hand_centroid:
+            self.beat_manager.check_hand_in_circle(right_hand_centroid, metronome_manager.get_current_beat())
+        
+        # Display hit/miss feedback
+        self.display_hit_miss_feedback(annotated_frame)
+    
+    def get_right_hand_centroid(self, pose_landmarks, annotated_frame):
+        """Get the centroid of the right hand landmarks."""
+        # Get right hand landmarks (MediaPipe hand detection)
+        # This would need to be implemented with MediaPipe hand detection
+        # For now, using right wrist as fallback
+        right_hand = pose_landmarks.get_pose_landmark_15()  # Right wrist
+        
+        if right_hand:
+            right_x, right_y = right_hand
+            # Convert normalized coordinates to pixel coordinates
+            frame_height = annotated_frame.shape[0]
+            frame_width = annotated_frame.shape[1]
+            return (int(right_x * frame_width), int(right_y * frame_height))
+        
+        return None

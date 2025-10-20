@@ -66,12 +66,12 @@ class SetupState:
             return "setup"
         
         # Check for significant upward movement (bring to attention)
-        left_moved_up = left_y < self.previous_left_y - self.significant_movement_threshold
-        right_moved_up = right_y < self.previous_right_y - self.significant_movement_threshold
+        left_moved_up = left_y is not None and left_y < self.previous_left_y - self.significant_movement_threshold
+        right_moved_up = right_y is not None and right_y < self.previous_right_y - self.significant_movement_threshold
         
         # Check for significant downward movement (hands dropped from attention)
-        left_dropped_down = left_y > self.previous_left_y + self.significant_movement_threshold
-        right_dropped_down = right_y > self.previous_right_y + self.significant_movement_threshold
+        left_dropped_down = left_y is not None and left_y > self.previous_left_y + self.significant_movement_threshold
+        right_dropped_down = right_y is not None and right_y > self.previous_right_y + self.significant_movement_threshold
         
         # Check if both hands are brought to attention (significant upward movement)
         both_hands_to_attention = left_moved_up and right_moved_up
@@ -157,6 +157,15 @@ class ProcessingState:
             self.components['midpoint_processor'].initialize_reference_midpoint(pose_landmarks, clock_manager)
             self.midpoint_initialized = True
             self.first_frame = False
+            
+            # Pre-display the first processing beat to avoid missing it
+            self.components['visual_manager'].display_processing_visuals(annotated_frame, 
+                                                                        self.components['beat_manager'], 
+                                                                        self.components['sway_detection'], 
+                                                                        self.components['mirror_detection'], 
+                                                                        self.components['elbow_detection'], 
+                                                                        pose_landmarks, 
+                                                                        self.components['midpoint_processor'])
             return "processing"
         
         self.components['midpoint_processor'].update_midpoint_check(pose_landmarks, clock_manager)

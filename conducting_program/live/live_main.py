@@ -9,6 +9,7 @@ from live.pose_landmarks import PoseLandmarks
 from live.clock import ClockManager
 from live.visual import VisualManager
 from live.sound import SoundManager
+from live.metronome import MetronomeManager
 from live.beat import BeatManager
 from shared.sway import SwayDetection
 from shared.mirror import MirrorDetection
@@ -33,7 +34,8 @@ def live_main():
     clock_manager = ClockManager()
     visual_manager = VisualManager(settings.get_time_signature())
     sound_manager = SoundManager()
-    beat_manager = BeatManager()
+    metronome_manager = MetronomeManager()
+    beat_manager = BeatManager(settings.get_time_signature())
     
     # Initialize detection components
     sway_detection = SwayDetection()
@@ -41,11 +43,13 @@ def live_main():
     elbow_detection = ElbowDetection()
     midpoint_processor = MidpointProcessor()
     
-    beat_manager.initialize(settings, sound_manager, visual_manager)
+    metronome_manager.initialize(settings, sound_manager, visual_manager)
+    visual_manager.set_beat_manager(beat_manager)
     
     # Create system state with all components
     components = {
-        'beat_manager': beat_manager,
+        'beat_manager': metronome_manager,  # Use metronome manager for timing
+        'beat_position_manager': beat_manager,  # Use beat manager for positions
         'midpoint_processor': midpoint_processor,
         'sway_detection': sway_detection,
         'mirror_detection': mirror_detection,
@@ -54,9 +58,9 @@ def live_main():
     }
     system_state = SystemState(components)
     
-    processing_loop(camera_manager, media_pipe_declaration, pose, system_state, pose_landmarks, clock_manager, visual_manager, beat_manager, sway_detection, mirror_detection, elbow_detection, midpoint_processor, settings)
+    processing_loop(camera_manager, media_pipe_declaration, pose, system_state, pose_landmarks, clock_manager, visual_manager, metronome_manager, beat_manager, sway_detection, mirror_detection, elbow_detection, midpoint_processor, settings)
 
-def processing_loop(camera_manager, media_pipe_declaration, pose, system_state, pose_landmarks, clock_manager, visual_manager, beat_manager, sway_detection, mirror_detection, elbow_detection, midpoint_processor, settings):
+def processing_loop(camera_manager, media_pipe_declaration, pose, system_state, pose_landmarks, clock_manager, visual_manager, metronome_manager, beat_manager, sway_detection, mirror_detection, elbow_detection, midpoint_processor, settings):
     """Main processing loop for live pose detection."""
     if not camera_manager.initialize_camera():
         return  # Error handling, handled in camera_manager
@@ -90,8 +94,8 @@ def processing_loop(camera_manager, media_pipe_declaration, pose, system_state, 
 
             if next_state != state_name:
                 system_state.change_state(next_state)
-                if next_state == "countdown":  # Start beat manager when transitioning to countdown
-                    beat_manager.start()
+                if next_state == "countdown":  # Start metronome manager when transitioning to countdown
+                    metronome_manager.start()
 
             if visual_manager.show_frame(annotated_frame):
                 break
