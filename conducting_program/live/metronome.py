@@ -22,25 +22,20 @@ class MetronomeManager:
         self.current_beat = 0
         self.measure_count = 0
         
-        # -------------------- Visual State --------------------
-        # Visual state (checked by live_display per frame)
-        self.show_visual = False
-        self.visual_lock = threading.Lock()
-        self.visual_duration = 0.4  # Duration to show visual (in seconds) - longer for better visibility
-        self.visual_start_time = None
-        
         # -------------------- External Components --------------------
         self.sound_manager = None
         self.visual_manager = None
+        self.beat_manager = None  # BeatManager for visual coordination
         
     # -------------------- Initialization --------------------
     
-    def initialize(self, settings, sound_manager, visual_manager):
-        """Initialize the beat manager with settings and external components."""
+    def initialize(self, settings, sound_manager, visual_manager, beat_manager):
+        """Initialize the metronome manager with settings and external components."""
         self.bpm = settings.get_beats_per_minute()
         self.time_signature = settings.get_time_signature()
         self.sound_manager = sound_manager
         self.visual_manager = visual_manager
+        self.beat_manager = beat_manager
         self.beat_interval = 60 / self.bpm
         self.beats_per_measure = int(self.time_signature.split('/')[0])
         print(f"MetronomeManager initialized: {self.bpm} BPM, {self.time_signature} time signature")
@@ -78,7 +73,7 @@ class MetronomeManager:
             self.measure_count += 1
         
     def _trigger_beat(self, beat_time):
-        """Trigger beat: spawn daemon threads for sound and visual."""
+        """Trigger beat: spawn daemon threads for sound and coordinate visual display."""
         self._increment_beat()
 
         # Only play sound and show visual after warmup measure (measure 0)
@@ -86,26 +81,13 @@ class MetronomeManager:
             # Spawn daemon thread for sound (non-blocking)
             threading.Thread(target=self.sound_manager.play_metronome_sound, daemon=True).start()
 
-            # Set visual flag with duration (checked by live_display per frame)
-            with self.visual_lock:
-                self.show_visual = True
-                self.visual_start_time = beat_time
+            # Trigger visual display via BeatManager (visual timing managed there)
+            if self.beat_manager:
+                self.beat_manager.trigger_beat_visual(beat_time)
                 
         elif self.measure_count == 0:
             # Warmup measure: initialize audio system silently
             threading.Thread(target=self._warmup_audio, daemon=True).start()
-    
-    # -------------------- Visual Management --------------------
-    
-    def get_show_visual(self):
-        """Get the visual state (called by live_display each frame)."""
-        with self.visual_lock:
-            if self.show_visual and self.visual_start_time is not None:
-                # Check if visual duration has expired
-                if time.time() - self.visual_start_time > self.visual_duration:
-                    self.show_visual = False
-                    self.visual_start_time = None
-            return self.show_visual
     
     # -------------------- Accessor Methods --------------------
     

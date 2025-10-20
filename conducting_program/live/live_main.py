@@ -43,25 +43,42 @@ def live_main():
     elbow_detection = ElbowDetection()
     midpoint_processor = MidpointProcessor()
     
-    metronome_manager.initialize(settings, sound_manager, visual_manager)
+    metronome_manager.initialize(settings, sound_manager, visual_manager, beat_manager)
     visual_manager.set_beat_manager(beat_manager)
     
     # Create system state with all components
     components = {
-        'beat_manager': metronome_manager,  # Use metronome manager for timing
-        'beat_position_manager': beat_manager,  # Use beat manager for positions
+        'beat_manager': metronome_manager,  
+        'beat_position_manager': beat_manager,  
         'midpoint_processor': midpoint_processor,
         'sway_detection': sway_detection,
         'mirror_detection': mirror_detection,
         'elbow_detection': elbow_detection,
-        'visual_manager': visual_manager
+        'visual_manager': visual_manager,
+        'camera_manager': camera_manager,
+        'media_pipe_declaration': media_pipe_declaration,
+        'pose': pose,
+        'pose_landmarks': pose_landmarks,
+        'clock_manager': clock_manager,
+        'settings': settings
     }
+    
+    # Give visual_manager access to all components
+    visual_manager.set_components(components)
     system_state = SystemState(components)
     
-    processing_loop(camera_manager, media_pipe_declaration, pose, system_state, pose_landmarks, clock_manager, visual_manager, metronome_manager, beat_manager, sway_detection, mirror_detection, elbow_detection, midpoint_processor, settings)
+    processing_loop(components, system_state)
 
-def processing_loop(camera_manager, media_pipe_declaration, pose, system_state, pose_landmarks, clock_manager, visual_manager, metronome_manager, beat_manager, sway_detection, mirror_detection, elbow_detection, midpoint_processor, settings):
+def processing_loop(components, system_state):
     """Main processing loop for live pose detection."""
+    camera_manager = components['camera_manager']
+    media_pipe_declaration = components['media_pipe_declaration']
+    pose = components['pose']
+    pose_landmarks = components['pose_landmarks']
+    clock_manager = components['clock_manager']
+    visual_manager = components['visual_manager']
+    metronome_manager = components['beat_manager']
+    
     if not camera_manager.initialize_camera():
         return  # Error handling, handled in camera_manager
     
@@ -71,33 +88,29 @@ def processing_loop(camera_manager, media_pipe_declaration, pose, system_state, 
     
     try:
         while True:
-            annotated_frame, detection_result = visual_manager.setup_frame(camera_manager, media_pipe_declaration, pose)
-            if annotated_frame is None:
-                  break
+            # Setup frame (stores in visual_manager)
+            success, detection_result = visual_manager.setup_frame(camera_manager, media_pipe_declaration, pose)
+            if not success:
+                break
             
-            # Display timing information
-            visual_manager.display_timing_info(annotated_frame, camera_manager, clock_manager)
+            # Update per-frame visuals (timing info, etc.)
+            visual_manager.update_frame_visuals(camera_manager, clock_manager)
             
+            # Update pose landmarks
             pose_landmarks.update_landmarks(detection_result)
             
-            # Update detection components
-            midpoint_processor.update_current_midpoint(pose_landmarks)
-            if midpoint_processor.get_reference_midpoint() is not None:
-                sway_detection.main(midpoint_processor.get_reference_midpoint(), midpoint_processor.get_live_midpoint())
-                mirror_detection.main(pose_landmarks, clock_manager, midpoint_processor.get_live_midpoint())
-            elbow_detection.main(pose_landmarks)
-
-            # Handle state management and transitions
+            # State management - state handles its own logic
             current_state = system_state.get_current_state()
-            state_name = current_state.get_state_name()
-            next_state = current_state.main(pose_landmarks, clock_manager, annotated_frame)           
-
-            if next_state != state_name:
+            next_state = current_state.main()  # No parameters - uses components
+            
+            # Handle state transitions
+            if next_state != current_state.get_state_name():
                 system_state.change_state(next_state)
-                if next_state == "countdown":  # Start metronome manager when transitioning to countdown
+                if next_state == "countdown":
                     metronome_manager.start()
-
-            if visual_manager.show_frame(annotated_frame):
+            
+            # Display frame
+            if visual_manager.show_frame():
                 break
                     
     except KeyboardInterrupt:
