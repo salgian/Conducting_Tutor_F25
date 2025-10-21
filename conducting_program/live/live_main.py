@@ -69,6 +69,43 @@ def live_main():
     
     processing_loop(components, system_state)
 
+def process_frame_with_skipping(camera_manager, media_pipe_declaration, pose, visual_manager, 
+                                frame_counter, last_detection_result):
+    """Capture and process frame with pose detection frame skipping optimization.
+    
+    Args:
+        camera_manager: Camera manager instance
+        media_pipe_declaration: MediaPipe declaration instance
+        pose: MediaPipe pose object
+        visual_manager: Visual manager instance
+        frame_counter: Current frame counter
+        last_detection_result: Previously cached detection result
+        
+    Returns:
+        tuple: (success, detection_result) - success status and current/cached detection result
+    """
+    # Capture and prepare frame
+    success, frame = camera_manager.capture_frame()
+    if not success:
+        return False, None
+    
+    frame = cv2.flip(frame, 1)  # Flip the frame horizontally
+    rgb_frame = camera_manager.convert_to_rgb(frame)  # Convert BGR to RGB
+    
+    # Frame skipping optimization: Process pose detection every 2nd frame
+    # Reuse previous results on alternate frames
+    if frame_counter % 2 == 0:
+        # Run full MediaPipe pose detection
+        detection_result = media_pipe_declaration.process_pose_detection(pose, rgb_frame)
+    else:
+        # Reuse previous detection result (skip expensive pose processing)
+        detection_result = last_detection_result
+    
+    # Draw pose landmarks and store in visual manager
+    visual_manager.current_frame = media_pipe_declaration.draw_pose_landmarks(frame, detection_result)
+    
+    return True, detection_result
+
 def processing_loop(components, system_state):
     """Main processing loop for live pose detection."""
     camera_manager = components['camera_manager']
@@ -86,17 +123,25 @@ def processing_loop(components, system_state):
     print("Starting live pose detection...")
     print("Press 'q' to quit")
     
+    # Frame skipping optimization for pose detection
+    frame_counter = 0
+    last_detection_result = None
+    
     try:
         while True:
-            # Setup frame (stores in visual_manager)
-            success, detection_result = visual_manager.setup_frame(camera_manager, media_pipe_declaration, pose)
+            # Process frame or reuse previous detection result
+            success, detection_result = process_frame_with_skipping(camera_manager, media_pipe_declaration, pose, visual_manager, frame_counter, last_detection_result)
             if not success:
                 break
+            
+            # Cache the detection result for next frame
+            last_detection_result = detection_result
+            frame_counter += 1
             
             # Update per-frame visuals (timing info, etc.)
             visual_manager.update_frame_visuals(camera_manager, clock_manager)
             
-            # Update pose landmarks
+            # Update pose landmarks with current or cached detection result
             pose_landmarks.update_landmarks(detection_result)
             
             # State management - state handles its own logic

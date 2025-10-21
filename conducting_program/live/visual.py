@@ -12,6 +12,8 @@ class VisualManager:
         self.beat_manager = None  # Will be set by external system
         self.current_frame = None  # Stores the current annotated frame
         self.components = None  # Will be set with all components for access
+        self.window_name = 'Live Pose Detection'
+        self.window_initialized = False
     
     def set_beat_manager(self, beat_manager):
         """Set the beat manager for position data and hit detection."""
@@ -27,9 +29,75 @@ class VisualManager:
         """Get the current frame height and width."""
         return self.current_frame.shape[0], self.current_frame.shape[1]
     
+    def _add_letterbox(self, frame, target_width, target_height):
+        """Add letterboxing/pillarboxing to maintain aspect ratio.
+        
+        Args:
+            frame: Original frame to display
+            target_width: Target window width
+            target_height: Target window height
+            
+        Returns:
+            Frame with letterboxing added to maintain aspect ratio
+        """
+        if frame is None:
+            return frame
+            
+        # Get original frame dimensions
+        orig_height, orig_width = frame.shape[:2]
+        orig_aspect = orig_width / orig_height
+        target_aspect = target_width / target_height
+        
+        # Calculate scaling to fit within target while maintaining aspect ratio
+        if orig_aspect > target_aspect:
+            # Frame is wider - fit to width, add letterbox top/bottom
+            new_width = target_width
+            new_height = int(target_width / orig_aspect)
+        else:
+            # Frame is taller - fit to height, add pillarbox left/right
+            new_height = target_height
+            new_width = int(target_height * orig_aspect)
+        
+        # Resize frame maintaining aspect ratio
+        resized_frame = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
+        
+        # Create black canvas at target size
+        canvas = cv2.copyMakeBorder(
+            resized_frame,
+            top=(target_height - new_height) // 2,
+            bottom=(target_height - new_height + 1) // 2,
+            left=(target_width - new_width) // 2,
+            right=(target_width - new_width + 1) // 2,
+            borderType=cv2.BORDER_CONSTANT,
+            value=[0, 0, 0]
+        )
+        
+        return canvas
+    
     def show_frame(self):
         """Display the annotated frame and handle user input for quitting."""
-        cv2.imshow('Live Pose Detection', self.current_frame)
+        # Initialize resizable window on first call
+        if not self.window_initialized:
+            # Create resizable window
+            cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
+            # Set initial window size to match frame
+            if self.current_frame is not None:
+                height, width = self.current_frame.shape[:2]
+                cv2.resizeWindow(self.window_name, width, height)
+            self.window_initialized = True
+        
+        # Get current window size
+        window_rect = cv2.getWindowImageRect(self.window_name)
+        window_width, window_height = window_rect[2], window_rect[3]
+        
+        # Add letterboxing to maintain aspect ratio
+        if window_width > 0 and window_height > 0:
+            display_frame = self._add_letterbox(self.current_frame, window_width, window_height)
+        else:
+            display_frame = self.current_frame
+        
+        cv2.imshow(self.window_name, display_frame)
+        
         if cv2.waitKey(1) & 0xFF == ord('q'):
             return True  # Signal to exit
         return False  # Continue
@@ -173,9 +241,15 @@ class VisualManager:
     
     def display_setup_visuals(self):
         """Display visuals for the setup state."""
-        cv2.putText(self.current_frame, "SETUP", (self.current_frame.shape[1] - 10, 30), 
+        # State name in bottom left
+        frame_height = self.current_frame.shape[0]
+        
+        # State name
+        cv2.putText(self.current_frame, "SETUP", (10, frame_height - 40), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-        cv2.putText(self.current_frame, "Bring band to attention", (self.current_frame.shape[1] - 10, 60), 
+        
+        # Details below state name
+        cv2.putText(self.current_frame, "Bring band to attention", (10, frame_height - 10), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
         
         # Display all circles based on time signature (no highlighting)
@@ -183,18 +257,24 @@ class VisualManager:
     
     def display_countdown_visuals(self, beat_manager):
         """Display visuals for the countdown state."""
-        cv2.putText(self.current_frame, "COUNTDOWN", (self.current_frame.shape[1] - 10, 30), 
+        # State name in bottom left
+        frame_height = self.current_frame.shape[0]
+        
+        # State name
+        cv2.putText(self.current_frame, "COUNTDOWN", (10, frame_height - 40), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
         
         if beat_manager.get_measure_count() == 0:
-            cv2.putText(self.current_frame, "Silent Measure", (self.current_frame.shape[1] - 10, 60), 
+            # Details below state name
+            cv2.putText(self.current_frame, "Silent Measure", (10, frame_height - 10), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
             # Show all circles during silent measure
             self.draw_setup_circles()
         else:
             # Always show all circles with rotating highlight during countdown (no blinking)
             self.draw_beat_circles(beat_manager.get_current_beat())
-            cv2.putText(self.current_frame, f"Measure {beat_manager.get_measure_count()}", (self.current_frame.shape[1] - 10, 60), 
+            # Details below state name
+            cv2.putText(self.current_frame, f"Measure {beat_manager.get_measure_count()}", (10, frame_height - 10), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
     
     def display_processing_visuals(self):
@@ -208,7 +288,11 @@ class VisualManager:
         pose_landmarks = self.components['pose_landmarks']
         midpoint_processor = self.components['midpoint_processor']
         
-        cv2.putText(self.current_frame, "PROCESSING", (self.current_frame.shape[1] - 10, 30), 
+        frame_width = self.current_frame.shape[1]
+        frame_height = self.current_frame.shape[0]
+        
+        # State name in bottom left
+        cv2.putText(self.current_frame, "PROCESSING", (10, frame_height - 10), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
         
         # Show beat circle briefly around beat timing for natural feel
@@ -216,34 +300,75 @@ class VisualManager:
             # Show blinking effect - only current beat circle (get beat from metronome)
             self.draw_processing_circles(metronome_manager.get_current_beat())
         
-        # Display detection feedback
+        # Display detection feedback - positioned at top center
+        center_x = frame_width // 2
+        feedback_y_start = 100
+        
+        feedback_index = 0
         if sway_detection.get_sway_flag():
-            cv2.putText(self.current_frame, "Swaying", (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 2)
+            y_pos = feedback_y_start + (feedback_index * 60)
+            text = "Swaying"
+            (text_width, _), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 1.5, 3)
+            cv2.putText(self.current_frame, text, (center_x - text_width // 2, y_pos), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 255), 3)
+            feedback_index += 1
+            
         if mirror_detection.get_mirroring_flag():
-            cv2.putText(self.current_frame, "Mirroring", (50, 150), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 2)
+            y_pos = feedback_y_start + (feedback_index * 60)
+            text = "Mirroring"
+            (text_width, _), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 1.5, 3)
+            cv2.putText(self.current_frame, text, (center_x - text_width // 2, y_pos), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 3)
+            feedback_index += 1
+            
         if elbow_detection.get_watch_left_elbow():
-            cv2.putText(self.current_frame, "Watch Left Elbow", (50, 200), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 2)
+            y_pos = feedback_y_start + (feedback_index * 60)
+            text = "Watch Left Elbow"
+            (text_width, _), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 1.5, 3)
+            cv2.putText(self.current_frame, text, (center_x - text_width // 2, y_pos), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 3)
+            feedback_index += 1
+            
         if elbow_detection.get_watch_right_elbow():
-            cv2.putText(self.current_frame, "Watch Right Elbow", (50, 250), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 2)
+            y_pos = feedback_y_start + (feedback_index * 60)
+            text = "Watch Right Elbow"
+            (text_width, _), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 1.5, 3)
+            cv2.putText(self.current_frame, text, (center_x - text_width // 2, y_pos), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 3)
         
         # Display midpoint visualizations
         self.draw_midpoint_live_line(pose_landmarks)
-        self.draw_midpoint_threshold_lines(sway_detection, midpoint_processor)
+        # Only show threshold lines when actively swaying (outside threshold)
+        if sway_detection.get_sway_flag():
+            self.draw_midpoint_threshold_lines(sway_detection, midpoint_processor)
         self.draw_midpoint_line(midpoint_processor)
         
         # TODO: Add tracking to hands to see if we make it into the circles in time
     
     def display_ending_visuals(self):
         """Display visuals for the ending state."""
-        cv2.putText(self.current_frame, "ENDING", (self.current_frame.shape[1] - 10, 30), 
+        frame_width = self.current_frame.shape[1]
+        frame_height = self.current_frame.shape[0]
+        
+        # State name in bottom left
+        cv2.putText(self.current_frame, "ENDING", (10, frame_height - 10), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-        cv2.putText(self.current_frame, "Session Complete", (50, 300), 
+        
+        # Center the session complete message
+        center_x = frame_width // 2
+        center_y = frame_height // 2
+        
+        text2 = "Session Complete"
+        (text_width2, text_height2), _ = cv2.getTextSize(text2, cv2.FONT_HERSHEY_SIMPLEX, 1, 2)
+        cv2.putText(self.current_frame, text2, (center_x - text_width2 // 2, center_y), 
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
         
-        # Display final hit percentage if beat manager is available
+        # Display final hit percentage if beat manager is available (centered below)
         if self.beat_manager:
             hit_percentage = self.beat_manager.get_hit_percentage()
-            cv2.putText(self.current_frame, f"Hit Rate: {hit_percentage:.1f}%", (50, 350), 
+            text3 = f"Hit Rate: {hit_percentage:.1f}%"
+            (text_width3, _), _ = cv2.getTextSize(text3, cv2.FONT_HERSHEY_SIMPLEX, 1, 2)
+            cv2.putText(self.current_frame, text3, (center_x - text_width3 // 2, center_y + 50), 
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
     
     # -------- Hit Feedback Display --------
