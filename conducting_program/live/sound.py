@@ -1,5 +1,6 @@
 import os
 import threading
+import time
 from pydub import AudioSegment
 from pydub.playback import play
 
@@ -15,6 +16,9 @@ class SoundManager:
     def __init__(self):
         """Initialize the sound manager."""
         self.metronome_sound = None
+        self.warmup_running = False
+        self.warmup_thread = None
+        self.audio_lock = threading.Lock()  # Prevent simultaneous audio playback
         self.load_metronome_sound()
     
     def load_metronome_sound(self):
@@ -29,14 +33,15 @@ class SoundManager:
     def play_metronome_sound(self):
         """Play a single metronome beat (non-blocking)."""
         if self.metronome_sound is not None:
-            threading.Thread(target=self._play_sound_non_blocking, args=(self.metronome_sound,)).start()
+            threading.Thread(target=self._play_sound_non_blocking, args=(self.metronome_sound,), daemon=True).start()
         else:
             print("Metronome sound not loaded, cannot play.")
     
     def _play_sound_non_blocking(self, sound):
-        """Helper to play sound in a separate thread."""
+        """Helper to play sound in a separate thread with lock to prevent conflicts."""
         if sound:
-            play(sound)
+            with self.audio_lock:
+                play(sound)
     
     def warmup_audio_system(self):
         """Pre-initialize the audio system to prevent first-play delays."""
@@ -44,7 +49,34 @@ class SoundManager:
             # Create a very short silent audio segment to initialize pydub's audio system
             silent_sound = AudioSegment.silent(duration=1)  # 1ms silent audio
             # This initializes the audio system without making any sound
-            play(silent_sound)
+            with self.audio_lock:
+                play(silent_sound)
         except Exception as e:
             print(f"Audio system warmup failed: {e}")
+    
+    def start_continuous_warmup(self):
+        """Start continuously warming up the audio system in the background."""
+        if not self.warmup_running:
+            self.warmup_running = True
+            self.warmup_thread = threading.Thread(target=self._warmup_worker, daemon=True)
+            self.warmup_thread.start()
+            print("Continuous audio warmup started")
+    
+    def stop_continuous_warmup(self):
+        """Stop the continuous warmup thread."""
+        self.warmup_running = False
+        if self.warmup_thread:
+            self.warmup_thread.join(timeout=1.0)
+        print("Continuous audio warmup stopped")
+    
+    def _warmup_worker(self):
+        """Background worker that continuously warms up the audio system."""
+        while self.warmup_running:
+            try:
+                if self.warmup_running:  # Double-check before warming up
+                    self.warmup_audio_system()
+                time.sleep(1.0)  # Warmup every 1 second (reduced frequency to minimize contention)
+            except Exception as e:
+                print(f"Continuous warmup error: {e}")
+                time.sleep(2.0)  # Wait longer on error
 

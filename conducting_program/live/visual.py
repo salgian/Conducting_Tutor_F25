@@ -136,6 +136,13 @@ class VisualManager:
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
 
     # -------- Beat Visualization --------
+
+    def display_beat_and_measure_numbers(self, current_beat, measure_count):
+        """Display the current beat and measure numbers on the frame."""
+        cv2.putText(self.current_frame, f'Beat: {current_beat}', (10, 150), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
+        cv2.putText(self.current_frame, f'Measure: {measure_count}', (10, 190), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
     
     def display_all_beats(self, current_beat):
         """Display all beat indicators on the frame with current beat highlighted."""
@@ -157,10 +164,19 @@ class VisualManager:
         
         # Draw all circles, highlight the current one
         for i, pos in enumerate(positions):
-            if i + 1 == current_beat:
+            beat_num = i + 1
+            if beat_num == current_beat:
                 cv2.circle(self.current_frame, pos, 30, (0, 0, 255), -1)  # Current beat - bright red
             else:
                 cv2.circle(self.current_frame, pos, 25, (0, 0, 150), -1)  # Other beats - dim red
+            
+            # Draw beat number on top of circle
+            text = str(beat_num)
+            (text_width, text_height), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
+            text_x = pos[0] - text_width // 2
+            text_y = pos[1] + text_height // 2
+            cv2.putText(self.current_frame, text, (text_x, text_y), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
     
     def draw_setup_circles(self):
         """Draw all beat circles for setup state (no highlighting)."""
@@ -173,8 +189,17 @@ class VisualManager:
             return
         
         # Draw all circles with same color (no highlighting)
-        for pos in positions:
+        for i, pos in enumerate(positions):
+            beat_num = i + 1
             cv2.circle(self.current_frame, pos, 25, (0, 0, 150), -1)  # All circles - dim red
+            
+            # Draw beat number on top of circle
+            text = str(beat_num)
+            (text_width, text_height), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
+            text_x = pos[0] - text_width // 2
+            text_y = pos[1] + text_height // 2
+            cv2.putText(self.current_frame, text, (text_x, text_y), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
     
     def draw_processing_circles(self, current_beat):
         """Draw only the current beat circle for processing state (blinking effect)."""
@@ -190,6 +215,14 @@ class VisualManager:
         if 1 <= current_beat <= len(positions):
             pos = positions[current_beat - 1]
             cv2.circle(self.current_frame, pos, 30, (0, 0, 255), -1)  # Current beat only - bright red
+            
+            # Draw beat number on top of circle
+            text = str(current_beat)
+            (text_width, text_height), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
+            text_x = pos[0] - text_width // 2
+            text_y = pos[1] + text_height // 2
+            cv2.putText(self.current_frame, text, (text_x, text_y), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
     
     # -------- Midpoint Visualization --------
     
@@ -200,13 +233,13 @@ class VisualManager:
             frame_height, frame_width = self.get_frame_dimensions()
             midpoint_normalized = int(midpoint * frame_width)
             cv2.line(self.current_frame, (midpoint_normalized, 0), (midpoint_normalized, frame_height), (225, 255, 255), 2)
-            cv2.putText(self.current_frame, f'Live Midpoint: {midpoint:.3f}', (10, 150), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+            # cv2.putText(self.current_frame, f'Live Midpoint: {midpoint:.3f}', (10, 150), 
+            #             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
         else:
             left_shoulder = pose_landmarks.left_shoulder_12
             right_shoulder = pose_landmarks.right_shoulder_11
-            cv2.putText(self.current_frame, f'L:{left_shoulder is not None} R:{right_shoulder is not None}', (10, 150), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+            # cv2.putText(self.current_frame, f'L:{left_shoulder is not None} R:{right_shoulder is not None}', (10, 150), 
+            #             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
 
     def draw_midpoint_threshold_lines(self, sway_detection, midpoint_processor):
         """Draw sway threshold lines on the frame to show acceptable movement boundaries."""
@@ -234,8 +267,8 @@ class VisualManager:
         frame_height, frame_width = self.get_frame_dimensions()
         reference_normalized = int(reference_midpoint * frame_width)
         cv2.line(self.current_frame, (reference_normalized, 0), (reference_normalized, frame_height), (255, 255, 0), 2)
-        cv2.putText(self.current_frame, f'Ref Midpoint: {reference_midpoint:.3f}', (10, 170), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+        # cv2.putText(self.current_frame, f'Ref Midpoint: {reference_midpoint:.3f}', (10, 170), 
+        #             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
     
     # -------- State Visuals --------
     
@@ -264,18 +297,8 @@ class VisualManager:
         cv2.putText(self.current_frame, "COUNTDOWN", (10, frame_height - 40), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
         
-        if beat_manager.get_measure_count() == 0:
-            # Details below state name
-            cv2.putText(self.current_frame, "Silent Measure", (10, frame_height - 10), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
-            # Show all circles during silent measure
-            self.draw_setup_circles()
-        else:
-            # Always show all circles with rotating highlight during countdown (no blinking)
-            self.draw_beat_circles(beat_manager.get_current_beat())
-            # Details below state name
-            cv2.putText(self.current_frame, f"Measure {beat_manager.get_measure_count()}", (10, frame_height - 10), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+        # Always show all circles with rotating highlight during countdown (no blinking)
+        self.draw_beat_circles(beat_manager.get_current_beat())
     
     def display_processing_visuals(self):
         """Display visuals for the processing state."""
@@ -295,6 +318,7 @@ class VisualManager:
         cv2.putText(self.current_frame, "PROCESSING", (10, frame_height - 10), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
         
+        self.display_beat_and_measure_numbers(metronome_manager.get_current_beat(), metronome_manager.get_measure_count())
         # Show beat circle briefly around beat timing for natural feel
         if beat_position_manager.get_show_visual():
             # Show blinking effect - only current beat circle (get beat from metronome)

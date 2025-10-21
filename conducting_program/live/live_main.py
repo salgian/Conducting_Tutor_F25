@@ -37,6 +37,9 @@ def live_main():
     metronome_manager = MetronomeManager()
     beat_manager = BeatManager(settings.get_time_signature())
     
+    # Start continuous audio warmup in background
+    sound_manager.start_continuous_warmup()
+    
     # Initialize detection components
     sway_detection = SwayDetection()
     mirror_detection = MirrorDetection()
@@ -60,7 +63,8 @@ def live_main():
         'pose': pose,
         'pose_landmarks': pose_landmarks,
         'clock_manager': clock_manager,
-        'settings': settings
+        'settings': settings,
+        'sound_manager': sound_manager
     }
     
     # Give visual_manager access to all components
@@ -115,6 +119,7 @@ def processing_loop(components, system_state):
     clock_manager = components['clock_manager']
     visual_manager = components['visual_manager']
     metronome_manager = components['beat_manager']
+    sound_manager = components['sound_manager']
     
     if not camera_manager.initialize_camera():
         return  # Error handling, handled in camera_manager
@@ -161,6 +166,7 @@ def processing_loop(components, system_state):
     except KeyboardInterrupt:
         print("\nStopping pose detection...")
     finally:
+        sound_manager.stop_continuous_warmup()
         camera_manager.cleanup()
         media_pipe_declaration.close_pose_detection(pose)
         print("Pose detection closed")

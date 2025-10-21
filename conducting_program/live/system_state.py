@@ -186,8 +186,8 @@ class CountdownState:
         visual_manager = self.components['visual_manager']
         
         if not self.first_frame:
-            # Normal countdown processing
-            if beat_manager.get_measure_count() >= 3:
+            # Normal countdown processing (2 measures: 0 and 1)
+            if beat_manager.get_measure_count() >= 2:
                 return "processing"
             
             # Display countdown visuals
@@ -196,6 +196,10 @@ class CountdownState:
             return "countdown"
         else:
             # First frame initialization
+            # Stop continuous audio warmup before starting metronome
+            # sound_manager = self.components['sound_manager']
+            self.components['sound_manager'].stop_continuous_warmup()
+            
             beat_manager.start()
             self.first_frame = False
             visual_manager.display_countdown_visuals(beat_manager)
@@ -207,6 +211,8 @@ class ProcessingState:
         self.components = components
         self.first_frame = True
         self.midpoint_initialized = False
+        # Reset beat and measure count to start from 1
+        components['beat_manager'].reset_count()
         print("=== PROCESSING PHASE ===")
     
     def get_state_name(self):

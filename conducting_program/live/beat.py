@@ -31,7 +31,7 @@ class BeatManager:
         """Get circle positions based on time signature."""
         match self.time_signature:
             case "4/4":
-                return [(1200, 600), (1050, 500), (1350, 500), (1250, 550)]
+                return [(1200, 600), (1000, 580), (1400, 580), (1215, 580)]
             case "3/4":
                 return [(400, 200), (300, 300), (500, 300)]
             case _:
@@ -76,8 +76,10 @@ class BeatManager:
         
         if right_hand:
             right_x, right_y = right_hand
-            # Convert normalized coordinates to pixel coordinates
-            return (int(right_x * frame_width), int(right_y * frame_height))
+            # Validate that both coordinates are not None
+            if right_x is not None and right_y is not None:
+                # Convert normalized coordinates to pixel coordinates
+                return (int(right_x * frame_width), int(right_y * frame_height))
         
         return None
     

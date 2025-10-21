@@ -76,18 +76,13 @@ class MetronomeManager:
         """Trigger beat: spawn daemon threads for sound and coordinate visual display."""
         self._increment_beat()
 
-        # Only play sound and show visual after warmup measure (measure 0)
-        if self.measure_count >= 1:
-            # Spawn daemon thread for sound (non-blocking)
-            threading.Thread(target=self.sound_manager.play_metronome_sound, daemon=True).start()
+        # Play sound and show visual for all beats (audio already warmed up during setup)
+        # Spawn daemon thread for sound (non-blocking)
+        threading.Thread(target=self.sound_manager.play_metronome_sound, daemon=True).start()
 
-            # Trigger visual display via BeatManager (visual timing managed there)
-            if self.beat_manager:
-                self.beat_manager.trigger_beat_visual(beat_time)
-                
-        elif self.measure_count == 0:
-            # Warmup measure: initialize audio system silently
-            threading.Thread(target=self._warmup_audio, daemon=True).start()
+        # Trigger visual display via BeatManager (visual timing managed there)
+        if self.beat_manager:
+            self.beat_manager.trigger_beat_visual(beat_time)
     
     # -------------------- Accessor Methods --------------------
     
@@ -99,13 +94,8 @@ class MetronomeManager:
         """Get the current measure number."""
         return self.measure_count
     
-    # -------------------- Audio Management --------------------
-    
-    def _warmup_audio(self):
-        """Warmup the audio system during the warmup measure."""
-        # Pre-initialize the audio system by calling the sound manager's warmup
-        try:
-            self.sound_manager.warmup_audio_system()
-            print("Audio system warming up...")
-        except Exception as e:
-            print(f"Audio warmup failed: {e}")
+    def reset_count(self):
+        """Reset beat and measure count to start from beginning."""
+        self.current_beat = 0
+        self.measure_count = 0
+        print("Beat and measure count reset")
