@@ -31,9 +31,11 @@ class BeatManager:
         """Get circle positions based on time signature."""
         match self.time_signature:
             case "4/4":
-                return [(1200, 600), (1000, 580), (1400, 580), (1215, 580)]
+                return [(1200, 600), (1000, 580), (1400, 580), (1225, 560)]
             case "3/4":
-                return [(400, 200), (300, 300), (500, 300)]
+                return [(1200, 600), (1400, 580), (1225, 560)]
+            case "4/custom/4":
+                return [(1500, 575), (1500, 615), (1500, 625), (1500, 650)]
             case _:
                 return []
     
@@ -95,7 +97,7 @@ class BeatManager:
             bool: True if hand is in circle, False otherwise
         """
         # Get frame dimensions directly from visual manager
-        frame_height, frame_width = visual_manager.get_frame_dimensions()
+        frame_width, frame_height = visual_manager.get_frame_dimensions()
         
         # Get hand position in pixels
         hand_position = self.get_hand_centroid_pixels(pose_landmarks, frame_width, frame_height)

@@ -16,8 +16,6 @@ class PoseLandmarks:
         self.right_hip_23 = (None, None)
         self.left_hip_24 = (None, None)
 
-        self.midpoint_x_axis = 0
-
     def update_landmarks(self, detection_result):
         if detection_result and detection_result.pose_landmarks:
             landmarks = detection_result.pose_landmarks.landmark
@@ -62,10 +60,3 @@ class PoseLandmarks:
     
     def get_pose_landmark_23(self):
         return self.right_hip_23
-
-    def calculate_midpoint(self):
-        if (self.left_shoulder_12[0] is not None and self.right_shoulder_11[0] is not None):
-            self.midpoint_x_axis = abs(self.right_shoulder_11[0] - self.left_shoulder_12[0]) * 0.5 + self.left_shoulder_12[0]
-    
-    def get_midpoint(self):
-        return self.midpoint_x_axis

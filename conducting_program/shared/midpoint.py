@@ -32,8 +32,12 @@ class MidpointProcessor:
     def update_current_midpoint(self, pose_landmarks):
         """Update the live midpoint from current pose data."""
         if pose_landmarks.left_shoulder_12 and pose_landmarks.right_shoulder_11:
-            pose_landmarks.calculate_midpoint() 
-            self.live_midpoint = pose_landmarks.get_midpoint()
+            left_x = pose_landmarks.left_shoulder_12[0]
+            right_x = pose_landmarks.right_shoulder_11[0]
+            if left_x is not None and right_x is not None:
+                self.live_midpoint = (left_x + right_x) / 2
+            else:
+                self.live_midpoint = None
     
     def should_update_midpoint(self, current_time):
         """Check if enough time has passed to update the midpoint."""

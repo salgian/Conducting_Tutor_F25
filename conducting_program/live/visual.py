@@ -1,33 +1,53 @@
-# Visual management for the conducting tutor - handles all visual elements and display functions
+# Visual management for the conducting tutor - orchestrates all visual elements
 
 import cv2
+from .visuals.beat_visuals import BeatVisualizer
+from .visuals.timing_visuals import TimingVisualizer
+from .visuals.midpoint_visuals import MidpointVisualizer
+from .visuals.feedback_visuals import FeedbackVisualizer
+from .visuals.state_visuals import StateVisualizer
 
 class VisualManager:
-    """Comprehensive visual management for the conducting tutor system."""
+    """Orchestrates all visual elements for the conducting tutor."""
     
     def __init__(self, time_signature):
-        """Initialize the visual manager with the specified time signature."""
         self.time_signature = time_signature
-        self.beat_duration = 0.1  # Duration to show each beat circle
-        self.beat_manager = None  # Will be set by external system
-        self.current_frame = None  # Stores the current annotated frame
-        self.components = None  # Will be set with all components for access
+        self.current_frame = None
         self.window_name = 'Live Pose Detection'
         self.window_initialized = False
+        self.beat_manager = None
+        self.components = None
+        
+        # Visualizer instances (initialized when components are set)
+        self.beat_visual = None
+        self.timing_visual = None
+        self.midpoint_visual = None
+        self.feedback_visual = None
+        self.state_visual = None
     
     def set_beat_manager(self, beat_manager):
         """Set the beat manager for position data and hit detection."""
         self.beat_manager = beat_manager
     
     def set_components(self, components):
-        """Set components dict for accessing all system components."""
+        """Set components dict and initialize all visualizers."""
         self.components = components
+        self._initialize_visualizers()
+    
+    def _initialize_visualizers(self):
+        """Initialize all specialized visualizer instances during startup."""
+        self.beat_visual = BeatVisualizer(self.beat_manager)
+        self.timing_visual = TimingVisualizer()
+        self.midpoint_visual = MidpointVisualizer()
+        self.feedback_visual = FeedbackVisualizer()
+        self.state_visual = StateVisualizer()
+        print("Visualizers initialized")
 
     # -------- Frame Management --------
     
     def get_frame_dimensions(self):
-        """Get the current frame height and width."""
-        return self.current_frame.shape[0], self.current_frame.shape[1]
+        """Get the current frame width and height."""
+        return self.current_frame.shape[1], self.current_frame.shape[0]  # Return (width, height)
     
     def _add_letterbox(self, frame, target_width, target_height):
         """Add letterboxing/pillarboxing to maintain aspect ratio.
@@ -119,190 +139,27 @@ class VisualManager:
     # -------- Timing Display --------
     
     def update_frame_visuals(self, camera_manager, clock_manager):
-        """Update per-frame visual elements (timing info, etc.)."""
-        self.display_timing_info(camera_manager, clock_manager)
-    
-    def display_timing_info(self, camera_manager, clock_manager):
-        """Display FPS and timing information on the frame."""
+        """Update per-frame visual elements (timing info)."""
         fps = camera_manager.calculate_fps()
-        program_time = clock_manager.get_program_elapsed_time()
-        session_time = clock_manager.get_session_elapsed_time()
-        
-        cv2.putText(self.current_frame, 'FPS: {}'.format(fps), (10, 30), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-        cv2.putText(self.current_frame, 'Program: {}'.format(clock_manager.format_time(program_time)), (10, 70), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
-        cv2.putText(self.current_frame, 'Session: {}'.format(clock_manager.format_time(session_time)), (10, 110), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
-
-    # -------- Beat Visualization --------
-
-    def display_beat_and_measure_numbers(self, current_beat, measure_count):
-        """Display the current beat and measure numbers on the frame."""
-        cv2.putText(self.current_frame, f'Beat: {current_beat}', (10, 150), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
-        cv2.putText(self.current_frame, f'Measure: {measure_count}', (10, 190), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
+        program_time = clock_manager.format_time(clock_manager.get_program_elapsed_time())
+        session_time = clock_manager.format_time(clock_manager.get_session_elapsed_time())
+        self.timing_visual.draw_fps_and_timers(self.current_frame, fps, program_time, session_time)
     
-    def display_all_beats(self, current_beat):
-        """Display all beat indicators on the frame with current beat highlighted."""
-        self.draw_beat_circles(current_beat)
-    
-    def display_single_beat(self, beat_number):
-        """Display beat indicators with the specified beat number highlighted."""
-        self.draw_beat_circles(beat_number)
-    
-    def draw_beat_circles(self, current_beat):
-        """Draw beat indicator circles based on time signature and highlight current beat."""
-        if current_beat is None or self.beat_manager is None:
-            return
-        
-        # Get circle positions from beat manager
-        positions = self.beat_manager.get_circle_positions()
-        if not positions:
-            return
-        
-        # Draw all circles, highlight the current one
-        for i, pos in enumerate(positions):
-            beat_num = i + 1
-            if beat_num == current_beat:
-                cv2.circle(self.current_frame, pos, 30, (0, 0, 255), -1)  # Current beat - bright red
-            else:
-                cv2.circle(self.current_frame, pos, 25, (0, 0, 150), -1)  # Other beats - dim red
-            
-            # Draw beat number on top of circle
-            text = str(beat_num)
-            (text_width, text_height), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
-            text_x = pos[0] - text_width // 2
-            text_y = pos[1] + text_height // 2
-            cv2.putText(self.current_frame, text, (text_x, text_y), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-    
-    def draw_setup_circles(self):
-        """Draw all beat circles for setup state (no highlighting)."""
-        if self.beat_manager is None:
-            return
-            
-        # Get circle positions from beat manager
-        positions = self.beat_manager.get_circle_positions()
-        if not positions:
-            return
-        
-        # Draw all circles with same color (no highlighting)
-        for i, pos in enumerate(positions):
-            beat_num = i + 1
-            cv2.circle(self.current_frame, pos, 25, (0, 0, 150), -1)  # All circles - dim red
-            
-            # Draw beat number on top of circle
-            text = str(beat_num)
-            (text_width, text_height), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
-            text_x = pos[0] - text_width // 2
-            text_y = pos[1] + text_height // 2
-            cv2.putText(self.current_frame, text, (text_x, text_y), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-    
-    def draw_processing_circles(self, current_beat):
-        """Draw only the current beat circle for processing state (blinking effect)."""
-        if current_beat is None or self.beat_manager is None:
-            return
-        
-        # Get circle positions from beat manager
-        positions = self.beat_manager.get_circle_positions()
-        if not positions:
-            return
-        
-        # Draw only the current beat circle
-        if 1 <= current_beat <= len(positions):
-            pos = positions[current_beat - 1]
-            cv2.circle(self.current_frame, pos, 30, (0, 0, 255), -1)  # Current beat only - bright red
-            
-            # Draw beat number on top of circle
-            text = str(current_beat)
-            (text_width, text_height), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
-            text_x = pos[0] - text_width // 2
-            text_y = pos[1] + text_height // 2
-            cv2.putText(self.current_frame, text, (text_x, text_y), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-    
-    # -------- Midpoint Visualization --------
-    
-    def draw_midpoint_live_line(self, pose_landmarks):
-        """Draw the current live midpoint line on the frame."""
-        midpoint = pose_landmarks.get_midpoint()
-        if midpoint is not None:
-            frame_height, frame_width = self.get_frame_dimensions()
-            midpoint_normalized = int(midpoint * frame_width)
-            cv2.line(self.current_frame, (midpoint_normalized, 0), (midpoint_normalized, frame_height), (225, 255, 255), 2)
-            # cv2.putText(self.current_frame, f'Live Midpoint: {midpoint:.3f}', (10, 150), 
-            #             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-        else:
-            left_shoulder = pose_landmarks.left_shoulder_12
-            right_shoulder = pose_landmarks.right_shoulder_11
-            # cv2.putText(self.current_frame, f'L:{left_shoulder is not None} R:{right_shoulder is not None}', (10, 150), 
-            #             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
-
-    def draw_midpoint_threshold_lines(self, sway_detection, midpoint_processor):
-        """Draw sway threshold lines on the frame to show acceptable movement boundaries."""
-        # Get reference midpoint and sway threshold
-        reference_midpoint = midpoint_processor.get_reference_midpoint()
-        sway_threshold = sway_detection.get_threshold()
-        if reference_midpoint is None or sway_threshold is None:
-            return
-        
-        frame_height, frame_width = self.get_frame_dimensions()
-        # Calculate positive and negative thresholds from reference midpoint
-        positive_threshold = reference_midpoint + sway_threshold
-        negative_threshold = reference_midpoint - sway_threshold
-        # Convert normalized coordinates to pixel coordinates
-        positive_normalized = int(positive_threshold * frame_width)
-        negative_normalized = int(negative_threshold * frame_width)
-        cv2.line(self.current_frame, (positive_normalized, 0), (positive_normalized, frame_height), (0, 0, 255), 2)
-        cv2.line(self.current_frame, (negative_normalized, 0), (negative_normalized, frame_height), (0, 0, 255), 2)
-
-    def draw_midpoint_line(self, midpoint_processor):
-        """Draw the reference midpoint line on the frame."""
-        reference_midpoint = midpoint_processor.get_reference_midpoint()
-        if reference_midpoint is None:
-            return
-        frame_height, frame_width = self.get_frame_dimensions()
-        reference_normalized = int(reference_midpoint * frame_width)
-        cv2.line(self.current_frame, (reference_normalized, 0), (reference_normalized, frame_height), (255, 255, 0), 2)
-        # cv2.putText(self.current_frame, f'Ref Midpoint: {reference_midpoint:.3f}', (10, 170), 
-        #             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-    
-    # -------- State Visuals --------
+    # -------- Public API: State Display Methods --------
     
     def display_setup_visuals(self):
-        """Display visuals for the setup state."""
-        # State name in bottom left
-        frame_height = self.current_frame.shape[0]
-        
-        # State name
-        cv2.putText(self.current_frame, "SETUP", (10, frame_height - 40), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-        
-        # Details below state name
-        cv2.putText(self.current_frame, "Bring band to attention", (10, frame_height - 10), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-        
-        # Display all circles based on time signature (no highlighting)
-        self.draw_setup_circles()
+        """Orchestrate setup state visuals."""
+        self.state_visual.draw_setup_label(self.current_frame)
+        self.beat_visual.draw_beat_circles(self.current_frame, current_beat=1, mode='setup')
     
     def display_countdown_visuals(self, beat_manager):
-        """Display visuals for the countdown state."""
-        # State name in bottom left
-        frame_height = self.current_frame.shape[0]
-        
-        # State name
-        cv2.putText(self.current_frame, "COUNTDOWN", (10, frame_height - 40), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
-        
-        # Always show all circles with rotating highlight during countdown (no blinking)
-        self.draw_beat_circles(beat_manager.get_current_beat())
+        """Orchestrate countdown state visuals."""
+        self.state_visual.draw_countdown_label(self.current_frame)
+        self.beat_visual.draw_beat_circles(self.current_frame, beat_manager.get_current_beat(), mode='countdown')
     
     def display_processing_visuals(self):
-        """Display visuals for the processing state."""
-        # Get components we need
+        """Orchestrate processing state visuals."""
+        # Get components
         beat_position_manager = self.components['beat_position_manager']
         metronome_manager = self.components['beat_manager']
         sway_detection = self.components['sway_detection']
@@ -310,104 +167,68 @@ class VisualManager:
         elbow_detection = self.components['elbow_detection']
         pose_landmarks = self.components['pose_landmarks']
         midpoint_processor = self.components['midpoint_processor']
+        frame_width, frame_height = self.get_frame_dimensions()
         
-        frame_width = self.current_frame.shape[1]
-        frame_height = self.current_frame.shape[0]
+        # State label
+        self.state_visual.draw_processing_label(self.current_frame)
         
-        # State name in bottom left
-        cv2.putText(self.current_frame, "PROCESSING", (10, frame_height - 10), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+        # Beat and measure counter
+        self.timing_visual.draw_beat_and_measure_info(
+            self.current_frame, 
+            metronome_manager.get_current_beat(), 
+            metronome_manager.get_measure_count()
+        )
         
-        self.display_beat_and_measure_numbers(metronome_manager.get_current_beat(), metronome_manager.get_measure_count())
-        # Show beat circle briefly around beat timing for natural feel
+        # Next beat preview (semi-transparent) - always visible, doesn't flash
+        self.beat_visual.draw_next_beat_preview(self.current_frame, metronome_manager.get_current_beat())
+        
+        # Current beat (solid red) - only shown when flashing
         if beat_position_manager.get_show_visual():
-            # Show blinking effect - only current beat circle (get beat from metronome)
-            self.draw_processing_circles(metronome_manager.get_current_beat())
+            self.beat_visual.draw_beat_circles(self.current_frame, metronome_manager.get_current_beat(), mode='processing')
         
-        # Display detection feedback - positioned at top center
-        center_x = frame_width // 2
-        feedback_y_start = 100
+        # Midpoint visualization (drawn after beat circles so lines are visible on top)
+        midpoint = midpoint_processor.get_live_midpoint()
+        if midpoint is not None:
+            self.midpoint_visual.draw_live_midpoint_line(self.current_frame, midpoint, frame_width, frame_height)
         
-        feedback_index = 0
+        reference_midpoint = midpoint_processor.get_reference_midpoint()
+        if reference_midpoint is not None:
+            self.midpoint_visual.draw_reference_midpoint_line(self.current_frame, reference_midpoint, frame_width, frame_height)
+            
         if sway_detection.get_sway_flag():
-            y_pos = feedback_y_start + (feedback_index * 60)
-            text = "Swaying"
-            (text_width, _), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 1.5, 3)
-            cv2.putText(self.current_frame, text, (center_x - text_width // 2, y_pos), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 255), 3)
-            feedback_index += 1
-            
-        if mirror_detection.get_mirroring_flag():
-            y_pos = feedback_y_start + (feedback_index * 60)
-            text = "Mirroring"
-            (text_width, _), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 1.5, 3)
-            cv2.putText(self.current_frame, text, (center_x - text_width // 2, y_pos), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 3)
-            feedback_index += 1
-            
-        if elbow_detection.get_watch_left_elbow():
-            y_pos = feedback_y_start + (feedback_index * 60)
-            text = "Watch Left Elbow"
-            (text_width, _), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 1.5, 3)
-            cv2.putText(self.current_frame, text, (center_x - text_width // 2, y_pos), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 3)
-            feedback_index += 1
-            
-        if elbow_detection.get_watch_right_elbow():
-            y_pos = feedback_y_start + (feedback_index * 60)
-            text = "Watch Right Elbow"
-            (text_width, _), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 1.5, 3)
-            cv2.putText(self.current_frame, text, (center_x - text_width // 2, y_pos), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 3)
+            sway_threshold = sway_detection.get_threshold()
+            self.midpoint_visual.draw_sway_threshold_lines(
+                self.current_frame, reference_midpoint, sway_threshold, frame_width, frame_height
+            )
         
-        # Display midpoint visualizations
-        self.draw_midpoint_live_line(pose_landmarks)
-        # Only show threshold lines when actively swaying (outside threshold)
-        if sway_detection.get_sway_flag():
-            self.draw_midpoint_threshold_lines(sway_detection, midpoint_processor)
-        self.draw_midpoint_line(midpoint_processor)
-        
-        # TODO: Add tracking to hands to see if we make it into the circles in time
+        # Feedback messages (drawn last, on top of everything)
+        feedback_flags = {
+            'swaying': sway_detection.get_sway_flag(),
+            'mirroring': mirror_detection.get_mirroring_flag(),
+            'watch_left_elbow': elbow_detection.get_watch_left_elbow(),
+            'watch_right_elbow': elbow_detection.get_watch_right_elbow()
+        }
+        self.feedback_visual.draw_feedback_messages(self.current_frame, feedback_flags)
     
     def display_ending_visuals(self):
-        """Display visuals for the ending state."""
-        frame_width = self.current_frame.shape[1]
-        frame_height = self.current_frame.shape[0]
-        
-        # State name in bottom left
-        cv2.putText(self.current_frame, "ENDING", (10, frame_height - 10), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-        
-        # Center the session complete message
-        center_x = frame_width // 2
-        center_y = frame_height // 2
-        
-        text2 = "Session Complete"
-        (text_width2, text_height2), _ = cv2.getTextSize(text2, cv2.FONT_HERSHEY_SIMPLEX, 1, 2)
-        cv2.putText(self.current_frame, text2, (center_x - text_width2 // 2, center_y), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-        
-        # Display final hit percentage if beat manager is available (centered below)
-        if self.beat_manager:
-            hit_percentage = self.beat_manager.get_hit_percentage()
-            text3 = f"Hit Rate: {hit_percentage:.1f}%"
-            (text_width3, _), _ = cv2.getTextSize(text3, cv2.FONT_HERSHEY_SIMPLEX, 1, 2)
-            cv2.putText(self.current_frame, text3, (center_x - text_width3 // 2, center_y + 50), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        """Orchestrate ending state visuals."""
+        self.state_visual.draw_ending_label(self.current_frame)
+        hit_percentage = self.beat_manager.get_hit_percentage() if self.beat_manager else None
+        self.state_visual.draw_session_complete_message(self.current_frame, hit_percentage)
     
     # -------- Hit Feedback Display --------
     
     def display_hit_feedback(self):
-        """Display hit feedback if beat was hit."""
-        if self.beat_manager is None:
-            return
-        
-        hit_status = self.beat_manager.get_current_hit_status()
-        
-        # Show HIT if we hit the beat
-        if hit_status == "hit":
-            frame_height, frame_width = self.get_frame_dimensions()
-            text_x = frame_width // 2 - 50
-            text_y = frame_height // 2
-            cv2.putText(self.current_frame, "HIT!", (text_x, text_y), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 255, 0), 5)
+        """Display HIT! message when beat is hit."""
+        if self.beat_visual:
+            self.beat_visual.draw_hit_feedback(self.current_frame)
+    
+    # -------- Backward Compatibility Wrappers --------
+    
+    def display_all_beats(self, current_beat):
+        """Wrapper for backward compatibility - draws beats in countdown mode."""
+        self.beat_visual.draw_beat_circles(self.current_frame, current_beat, mode='countdown')
+    
+    def display_single_beat(self, beat_number):
+        """Wrapper for backward compatibility - draws beats in countdown mode."""
+        self.beat_visual.draw_beat_circles(self.current_frame, beat_number, mode='countdown')

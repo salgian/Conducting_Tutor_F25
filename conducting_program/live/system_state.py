@@ -211,8 +211,13 @@ class ProcessingState:
         self.components = components
         self.first_frame = True
         self.midpoint_initialized = False
+
         # Reset beat and measure count to start from 1
         components['beat_manager'].reset_count()
+
+        # Start session clock for timing
+        components['clock_manager'].start_session_clock()
+
         print("=== PROCESSING PHASE ===")
     
     def get_state_name(self):
@@ -246,15 +251,15 @@ class ProcessingState:
             visual_manager.display_processing_visuals()
             
             return "processing"
-        else:
-            # First frame initialization
-            midpoint_processor.initialize_reference_midpoint(pose_landmarks, clock_manager)
-            self.midpoint_initialized = True
-            self.first_frame = False
-            
-            # Pre-display the first processing beat to avoid missing it
-            visual_manager.display_processing_visuals()
-            return "processing"
+        
+        # First frame initialization
+        midpoint_processor.initialize_reference_midpoint(pose_landmarks, clock_manager)
+        self.midpoint_initialized = True
+        self.first_frame = False
+        
+        # Pre-display the first processing beat to avoid missing it
+        visual_manager.display_processing_visuals()
+        return "processing"
 
 class EndingState:
     def __init__(self, components):

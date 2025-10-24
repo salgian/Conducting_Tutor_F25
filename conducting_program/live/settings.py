@@ -16,6 +16,8 @@ class Settings:
                 self.time_signature = "4/4"
             case "3/4":
                 self.time_signature = "3/4"
+            case "4/custom/4":
+                self.time_signature = "4/custom/4"
             case _:
                 print("Invalid time signature")
     
