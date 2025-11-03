@@ -1,6 +1,6 @@
 # This is going to be the overall main.
 
-from live.live_main import live_main
+from src.core.live.live_main import live_main
 
 def main(): 
 

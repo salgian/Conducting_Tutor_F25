@@ -1,20 +1,20 @@
 # Main live program - carries the logic for the live version of the program
 
 import cv2
-from live.mp_declaration import mediaPipeDeclaration
-from live.camera import CameraManager
-from live.settings import Settings
-from live.system_state import SystemState
-from live.pose_landmarks import PoseLandmarks
-from live.clock import ClockManager
-from live.visual import VisualManager
-from live.sound import SoundManager
-from live.metronome import MetronomeManager
-from live.beat import BeatManager
-from shared.sway import SwayDetection
-from shared.mirror import MirrorDetection
-from shared.elbow import ElbowDetection
-from shared.midpoint import MidpointProcessor
+from src.core.live.mp_declaration import mediaPipeDeclaration
+from src.core.live.camera import CameraManager
+from src.core.live.settings import Settings
+from src.core.live.system_state import SystemState
+from src.core.live.pose_landmarks import PoseLandmarks
+from src.core.live.clock import ClockManager
+from src.core.live.visual import VisualManager
+from src.core.live.sound import SoundManager
+from src.core.live.metronome import MetronomeManager
+from src.core.live.beat import BeatManager
+from src.core.shared.sway import SwayDetection
+from src.core.shared.mirror import MirrorDetection
+from src.core.shared.elbow import ElbowDetection
+from src.core.shared.midpoint import MidpointProcessor
 
 def live_main():
     """Initialize and start the live conducting tutor system."""

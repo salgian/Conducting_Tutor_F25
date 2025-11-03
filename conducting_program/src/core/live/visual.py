@@ -1,11 +1,11 @@
 # Visual management for the conducting tutor - orchestrates all visual elements
 
 import cv2
-from .visuals.beat_visuals import BeatVisualizer
-from .visuals.timing_visuals import TimingVisualizer
-from .visuals.midpoint_visuals import MidpointVisualizer
-from .visuals.feedback_visuals import FeedbackVisualizer
-from .visuals.state_visuals import StateVisualizer
+from src.core.live.visuals.beat_visuals import BeatVisualizer
+from src.core.live.visuals.timing_visuals import TimingVisualizer
+from src.core.live.visuals.midpoint_visuals import MidpointVisualizer
+from src.core.live.visuals.feedback_visuals import FeedbackVisualizer
+from src.core.live.visuals.state_visuals import StateVisualizer
 
 class VisualManager:
     """Orchestrates all visual elements for the conducting tutor."""

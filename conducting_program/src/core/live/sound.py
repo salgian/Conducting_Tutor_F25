@@ -5,7 +5,7 @@ from pydub import AudioSegment
 from pydub.playback import play
 
 # Simple sound file paths
-SOUNDS_PATH = "assets/sounds/"
+SOUNDS_PATH = "src/assets/sounds/"
 
 class SoundManager:
     """
