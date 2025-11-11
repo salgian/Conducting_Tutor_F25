@@ -87,11 +87,7 @@ class MirrorDetection:
                 # Start buffering for mirroring
                 if self.buffer_start_time(current_time, 0.5):
                     self.mirroring_flag = True
-                    print("Mirroring")
             else:
-                # Already confirmed mirroring - keep printing
-                print("Mirroring")
-                # Reset end buffer since we're still mirroring
                 self.before_ending = None
         else:
             # Not mirroring

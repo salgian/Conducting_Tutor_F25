@@ -51,10 +51,10 @@ class MetronomeManager:
             print("MetronomeManager started")
     
     def stop(self):
-        """Stop the beat timing thread."""
+        """Stop the beat timing thread and wait for it to finish."""
         self.is_running = False
-        if self.bpm_thread:
-            self.bpm_thread.join(timeout=0.1)
+        if self.bpm_thread and self.bpm_thread.is_alive():
+            self.bpm_thread.join(timeout=1.0)
         print("MetronomeManager stopped")
 
     # -------------------- Beat Processing --------------------
@@ -64,6 +64,7 @@ class MetronomeManager:
         while self.is_running:
             self._trigger_beat(time.time())
             time.sleep(self.beat_interval) # Sleep for exactly one beat interval
+        # Thread exits when is_running becomes False
 
     def _increment_beat(self):
         """Increment the current beat and check if the measure count should be incremented."""

@@ -182,27 +182,28 @@ class CountdownState:
         return self.state_name
     
     def main(self):
-        beat_manager = self.components['beat_manager']
+        metronome_manager = self.components['beat_manager']  # MetronomeManager (has the thread)
         visual_manager = self.components['visual_manager']
         
         if not self.first_frame:
             # Normal countdown processing (2 measures: 0 and 1)
-            if beat_manager.get_measure_count() >= 2:
+            if metronome_manager.get_measure_count() >= 2:
                 return "processing"
             
             # Display countdown visuals
-            visual_manager.display_countdown_visuals(beat_manager)
+            visual_manager.display_countdown_visuals(metronome_manager)
             
             return "countdown"
         else:
             # First frame initialization
-            # Stop continuous audio warmup before starting metronome
-            # sound_manager = self.components['sound_manager']
-            self.components['sound_manager'].stop_continuous_warmup()
+            # Stop continuous audio warmup - no longer needed once metronome starts playing
+            sound_manager = self.components['sound_manager']
+            sound_manager.stop_continuous_warmup()
             
-            beat_manager.start()
+            # Start metronome (which will play sounds regularly, making warmup unnecessary)
+            metronome_manager.start()
             self.first_frame = False
-            visual_manager.display_countdown_visuals(beat_manager)
+            visual_manager.display_countdown_visuals(metronome_manager)
             return "countdown"
 
 class ProcessingState:
@@ -266,22 +267,26 @@ class EndingState:
         self.state_name = State.ENDING.value
         self.components = components
         self.first_frame = True
+        self.threads_stopped = False
         print("=== ENDING PHASE ===")
     
     def get_state_name(self):
         return self.state_name
     
     def main(self):
-        beat_manager = self.components['beat_manager']
+        metronome_manager = self.components['beat_manager']
+        sound_manager = self.components['sound_manager']
         visual_manager = self.components['visual_manager']
         
         if not self.first_frame:
-            # Normal ending display
             visual_manager.display_ending_visuals()
             return "ending"
         else:
-            # First frame initialization
-            beat_manager.stop()
+            # Stop metronome and sound threads
+            metronome_manager.stop()
+            sound_manager.stop_continuous_warmup()
+            
+            self.threads_stopped = True
             self.first_frame = False
             visual_manager.display_ending_visuals()
             return "ending"

@@ -3,7 +3,7 @@
 import cv2
 from src.core.live.mp_declaration import mediaPipeDeclaration
 from src.core.live.camera import CameraManager
-from src.core.live.settings import Settings
+from src.core.shared.settings import Settings
 from src.core.live.system_state import SystemState
 from src.core.live.pose_landmarks import PoseLandmarks
 from src.core.live.clock import ClockManager

@@ -4,9 +4,6 @@ import time
 from pydub import AudioSegment
 from pydub.playback import play
 
-# Simple sound file paths
-SOUNDS_PATH = "src/assets/sounds/"
-
 class SoundManager:
     """
     Manages sound playback for the conducting tutor.
@@ -22,12 +19,16 @@ class SoundManager:
         self.load_metronome_sound()
     
     def load_metronome_sound(self):
-        """Load the metronome sound file."""
-        sound_file_path = os.path.abspath(os.path.join(SOUNDS_PATH, "metro_sound.mp3"))
+        """Load the metronome sound file (WAV format)."""
+        # Get path relative to this file: go up 3 levels to project root, then to assets/sounds
+        sound_file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "assets", "sounds", "metro_sound.wav"))
+        
+        # Load WAV file directly
         if os.path.exists(sound_file_path):
-            self.metronome_sound = AudioSegment.from_mp3(sound_file_path)
+            self.metronome_sound = AudioSegment.from_wav(sound_file_path)
         else:
             print(f"Metronome sound not found: {sound_file_path}")
+            print("Continuing without metronome sound...")
             self.metronome_sound = None
 
     def play_metronome_sound(self):
@@ -45,14 +46,14 @@ class SoundManager:
     
     def warmup_audio_system(self):
         """Pre-initialize the audio system to prevent first-play delays."""
-        try:
-            # Create a very short silent audio segment to initialize pydub's audio system
-            silent_sound = AudioSegment.silent(duration=1)  # 1ms silent audio
-            # This initializes the audio system without making any sound
-            with self.audio_lock:
-                play(silent_sound)
-        except Exception as e:
-            print(f"Audio system warmup failed: {e}")
+        # Only warmup if sound is available
+        if self.metronome_sound is None:
+            return
+        # Create a very short silent audio segment to initialize pydub's audio system
+        silent_sound = AudioSegment.silent(duration=1)  # 1ms silent audio
+        # This initializes the audio system without making any sound
+        with self.audio_lock:
+            play(silent_sound)
     
     def start_continuous_warmup(self):
         """Start continuously warming up the audio system in the background."""
@@ -63,20 +64,16 @@ class SoundManager:
             print("Continuous audio warmup started")
     
     def stop_continuous_warmup(self):
-        """Stop the continuous warmup thread."""
+        """Stop the continuous warmup thread and wait for it to finish."""
         self.warmup_running = False
-        if self.warmup_thread:
+        if self.warmup_thread and self.warmup_thread.is_alive():
             self.warmup_thread.join(timeout=1.0)
         print("Continuous audio warmup stopped")
     
     def _warmup_worker(self):
         """Background worker that continuously warms up the audio system."""
         while self.warmup_running:
-            try:
-                if self.warmup_running:  # Double-check before warming up
-                    self.warmup_audio_system()
-                time.sleep(1.0)  # Warmup every 1 second (reduced frequency to minimize contention)
-            except Exception as e:
-                print(f"Continuous warmup error: {e}")
-                time.sleep(2.0)  # Wait longer on error
+            if self.warmup_running and self.metronome_sound is not None:
+                self.warmup_audio_system()
+            time.sleep(1.0)  # Warmup every 1 second (reduced frequency to minimize contention)
 
