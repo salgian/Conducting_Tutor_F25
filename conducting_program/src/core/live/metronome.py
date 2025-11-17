@@ -52,6 +52,8 @@ class MetronomeManager:
     
     def stop(self):
         """Stop the beat timing thread and wait for it to finish."""
+        if not self.is_running:
+            return
         self.is_running = False
         if self.bpm_thread and self.bpm_thread.is_alive():
             self.bpm_thread.join(timeout=1.0)

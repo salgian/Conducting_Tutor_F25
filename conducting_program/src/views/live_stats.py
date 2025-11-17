@@ -61,10 +61,7 @@ class LiveStatsView(tk.Frame):
     @staticmethod
     def _fire(cb: Optional[Callable[[], None]]) -> None:
         if callable(cb):
-            try:
                 cb()
-            except Exception:
-                pass
 
 
 def main() -> None:

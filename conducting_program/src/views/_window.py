@@ -105,9 +105,8 @@ class MainWindow:
                 on_state_change=self._on_state_change,
             )
             self.live_frame.grid(row=0, column=0, sticky="nsew")
-        # Initialize backend when showing live view
-        if self.live_frame:
-            self.live_frame.initialize_backend()
+        
+        self.live_frame.initialize_backend()
         self.show_live()
     
     def _on_state_change(self, new_state: str) -> None:
@@ -320,31 +319,25 @@ class MainWindow:
             self.home_frame = HomeView(self.container, on_settings=self.on_settings, on_live=self.on_live, on_video=self.on_video)
             self.home_frame.grid(row=0, column=0, sticky="nsew")
 
-        # Stop any active processing when returning to home
         if self.active_frame:
             self.active_frame.stop_metrics_updates()
         if self.live_frame:
             self.live_frame.stop_backend()
-        if self.ui_bridge:
-            try:
-                self.ui_bridge.stop_processing()
-            except Exception as e:
-                print(f"Error stopping backend: {e}")
         
-        # Reset frames so they can be reinitialized on next use
+        if self.ui_bridge:
+            self.ui_bridge.stop_processing()
+            self.ui_bridge._cleanup_components()
+        
         self.live_frame = None
         self.active_frame = None
 
         if self.settings_frame is not None:
             self.settings_frame.lower()
-        if self.live_frame is not None:
-            self.live_frame.lower()
         if self.edit_frame is not None:
             self.edit_frame.lower()
-        if self.active_frame is not None:
-            self.active_frame.lower()
         if self.stats_frame is not None:
             self.stats_frame.lower()
+        
         self.home_frame.tkraise()
         self.current_view = "home"
 

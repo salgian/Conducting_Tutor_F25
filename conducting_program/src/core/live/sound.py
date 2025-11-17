@@ -65,6 +65,8 @@ class SoundManager:
     
     def stop_continuous_warmup(self):
         """Stop the continuous warmup thread and wait for it to finish."""
+        if not self.warmup_running:
+            return
         self.warmup_running = False
         if self.warmup_thread and self.warmup_thread.is_alive():
             self.warmup_thread.join(timeout=1.0)

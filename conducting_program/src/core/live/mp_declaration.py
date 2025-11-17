@@ -66,7 +66,13 @@ class mediaPipeDeclaration:
     @staticmethod
     def close_pose_detection(pose):
         """Close pose detection"""
-        pose.close()
+        if pose is None:
+            return
+        try:
+            pose.close()
+        except ValueError:
+            # Pose detection already closed, ignore
+            pass
 
 # Function to declare mediapipe processing
 def declare_mp_processing():

@@ -136,6 +136,9 @@ class UIBridge:
             if self.processing_active:
                 return True  # Already running
             
+            # Ensure all previous threads are stopped before starting new ones
+            self._stop_all_threads()
+            
             # Initialize camera
             camera_manager = self.components.get('camera_manager')
             if not camera_manager:
@@ -301,30 +304,40 @@ class UIBridge:
         return True, detection_result
     
     def _cleanup_components(self):
-        """Clean up all component resources."""
-        sound_manager = self.components['sound_manager']
-        camera_manager = self.components['camera_manager']
-        media_pipe_declaration = self.components['media_pipe_declaration']
-        pose = self.components['pose']
+        """Clean up all component resources and stop all threads."""
+        if not self.components:
+            return
         
-        sound_manager.stop_continuous_warmup()
-        camera_manager.cleanup()
-        media_pipe_declaration.close_pose_detection(pose)
+        self._stop_all_threads()
+        
+        camera_manager = self.components.get('camera_manager')
+        media_pipe_declaration = self.components.get('media_pipe_declaration')
+        pose = self.components.get('pose')
+        
+        if camera_manager:
+            camera_manager.cleanup()
+        if media_pipe_declaration and pose:
+            media_pipe_declaration.close_pose_detection(pose)
         
         self.components = {}
     
     def _cleanup_processing(self):
-        """Clean up processing resources."""
-        sound_manager = self.components['sound_manager']
-        camera_manager = self.components['camera_manager']
-        media_pipe_declaration = self.components['media_pipe_declaration']
-        pose = self.components['pose']
+        """Clean up processing resources after threads are stopped."""
+        if not self.components:
+            while not self.frame_queue.empty():
+                self.frame_queue.get_nowait()
+            self.current_frame = None
+            return
         
-        sound_manager.stop_continuous_warmup()
-        camera_manager.cleanup()
-        media_pipe_declaration.close_pose_detection(pose)
+        camera_manager = self.components.get('camera_manager')
+        media_pipe_declaration = self.components.get('media_pipe_declaration')
+        pose = self.components.get('pose')
         
-        # Clear frame queue
+        if camera_manager:
+            camera_manager.cleanup()
+        if media_pipe_declaration and pose:
+            media_pipe_declaration.close_pose_detection(pose)
+        
         while not self.frame_queue.empty():
             self.frame_queue.get_nowait()
         
@@ -338,10 +351,10 @@ class UIBridge:
     def stop_processing(self):
         """Stop processing loop and cleanup resources.
         
-        Thread hierarchy cleanup:
-        1. Processing loop thread (this method stops and joins it)
-        2. Metronome beat thread (stopped in EndingState)
-        3. Sound warmup thread (stopped in EndingState)
+        Stops all threads:
+        1. Processing loop thread (main thread)
+        2. Metronome beat thread (spawned from processing)
+        3. Sound warmup thread (spawned from processing)
         """
         with self.processing_lock:
             if not self.processing_active:
@@ -350,11 +363,23 @@ class UIBridge:
             self.processing_active = False
             
             # Wait for processing thread to finish
-            if self.processing_thread.is_alive():
+            if self.processing_thread and self.processing_thread.is_alive():
                 self.processing_thread.join(timeout=3.0)
             
-            # Cleanup is handled in _cleanup_processing, but ensure it's called
             self._cleanup_processing()
+    
+    def _stop_all_threads(self):
+        """Stop all threads spawned from the processing loop."""
+        if not self.components:
+            return
+        
+        metronome_manager = self.components.get('beat_manager')
+        sound_manager = self.components.get('sound_manager')
+        
+        if metronome_manager:
+            metronome_manager.stop()
+        if sound_manager:
+            sound_manager.stop_continuous_warmup()
     
     def get_current_frame(self) -> np.ndarray | None:
         """Get the current frame for UI display.
