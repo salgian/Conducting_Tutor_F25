@@ -362,6 +362,9 @@ class UIBridge:
             
             self.processing_active = False
             
+            # Stop all threads (metronome, sound, etc.) immediately
+            self._stop_all_threads()
+            
             # Wait for processing thread to finish
             if self.processing_thread and self.processing_thread.is_alive():
                 self.processing_thread.join(timeout=3.0)

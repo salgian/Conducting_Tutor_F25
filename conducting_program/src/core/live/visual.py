@@ -213,7 +213,8 @@ class VisualManager:
     def display_ending_visuals(self):
         """Orchestrate ending state visuals."""
         self.state_visual.draw_ending_label(self.current_frame)
-        hit_percentage = self.beat_manager.get_hit_percentage() if self.beat_manager else None
+        # hit_percentage = self.beat_manager.get_hit_percentage() if self.beat_manager else None
+        hit_percentage = None
         self.state_visual.draw_session_complete_message(self.current_frame, hit_percentage)
     
     # -------- Hit Feedback Display --------

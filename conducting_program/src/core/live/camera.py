@@ -4,7 +4,7 @@ import time
 class CameraManager:
 
     def __init__(self, camera_index=0):
-        self.camera_index = camera_index
+        self.camera_index = "C:/Users/Jeffrey Ernest/Desktop/old cs stuff/videos/Marchingband(2).mp4"
         self.cap = None
         self.prev_frame_time = 0
         self.new_frame_time = 0
@@ -58,7 +58,11 @@ class CameraManager:
     def calculate_fps(self):
         # Calculate current FPS based on frame timing
         self.new_frame_time = time.time()
-        fps = 1/(self.new_frame_time - self.prev_frame_time) if self.prev_frame_time > 0 else 0
+        time_diff = self.new_frame_time - self.prev_frame_time
+        if self.prev_frame_time > 0 and time_diff > 0:
+            fps = 1 / time_diff
+        else:
+            fps = 0
         self.prev_frame_time = self.new_frame_time
         return int(fps)
     
