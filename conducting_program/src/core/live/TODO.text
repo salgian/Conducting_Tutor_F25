@@ -1,0 +1,17 @@
+This files is to help maintain and write down ideas
+
+-Use config to store time sig and BPM
+-Might need to have a program side clock outside of fps
+    Because the live frames seem to be all over the place.
+-Combind the stop functions to system_state file?
+-Need to add graphics, body out line, count down, etc..
+-Explore the idea of threading for running the frame data collection
+-Figure out settings for setup
+-Figure out how to pass a video as a live stream
+-For stateloop maybe move the states around, as we will be seeing processing the most then start, and end and countdown onces.
+    -Is there something better I could do? maybe a catch or something is more efficent
+
+ Add the no midpoint data here or in file, think about this in the future not now.
+
+-Settings: 
+    - Metranome
