@@ -1,0 +1,36 @@
+{
+  "video_path": "C:/Users/Jeffrey Ernest/Desktop/videos/Marchingband(2).mp4",
+  "export_path": "output",
+  "crop_rect": [
+    106,
+    28,
+    1500,
+    1046
+  ],
+  "process_markers": [
+    [
+      0,
+      233
+    ]
+  ],
+  "processing_options": {
+    "generate_beat_plot": true,
+    "generate_hand_path": true,
+    "generate_cluster_graph": true,
+    "generate_overtime_graph": true,
+    "generate_swaying_graph": true,
+    "generate_mirror_x_graph": true,
+    "generate_mirror_y_graph": true,
+    "export_beat_detection": false,
+    "graph_options": {
+      "generate_beat_plot": true,
+      "generate_hand_path": true,
+      "generate_cluster_graph": true,
+      "generate_overtime_graph": true,
+      "generate_swaying_graph": true,
+      "generate_mirror_x_graph": true,
+      "generate_mirror_y_graph": true
+    },
+    "conducting_analysis": true
+  }
+}

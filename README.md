@@ -1,8 +1,6 @@
-<<<<<<< HEAD
-# Conducting_Tutor_F25
-=======
 # Conducting_Tutor
-# Project Overview
+
+# Project Overview (program)
 
 This project processes video data to detect conducting movements and generate visualizations. Below is a brief description of each file in the project:
 
@@ -69,4 +67,4 @@ This project processes video data to detect conducting movements and generate vi
 - **pose_landmarks/**: Contains data related to pose landmark detection.
 
 - **theme_assets/**: Stores assets for the themed interfaces.
->>>>>>> refactored
+

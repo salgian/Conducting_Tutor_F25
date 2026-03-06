@@ -1,0 +1,373 @@
+import cv2
+import matplotlib.pyplot as plt
+import mediapipe as mp
+from scipy.signal import find_peaks
+import numpy as np
+from mediapipe.framework.formats import landmark_pb2
+import time
+
+BaseOptions = mp.tasks.BaseOptions
+PoseLandmarker = mp.tasks.vision.PoseLandmarker
+PoseLandmarkerOptions = mp.tasks.vision.PoseLandmarkerOptions
+VisionRunningMode = mp.tasks.vision.RunningMode
+
+# Video file 
+videoFileName = '4-4stacatto(3).mp4'
+videoOutputFileName = videoFileName + '_Full_output'
+plotName = videoFileName + '_Full_coordinates_plot'
+swayPlotName = videoFileName + '_Full_Sway_plot'
+rockingPlotName = videoFileName + '_Rocking_plot'
+handsPlotName = videoFileName + '_Full_Hands_plot'
+
+# 2D array to store coordinates
+frame_array = []
+
+# Function to draw landmarks on the image
+def draw_landmarks_on_image(rgb_image, detection_result):
+    pose_landmarks_list = detection_result.pose_landmarks
+    annotated_image = np.copy(rgb_image)
+
+    for idx in range(len(pose_landmarks_list)):
+        pose_landmarks = pose_landmarks_list[idx]
+
+        # Draw the pose landmarks.
+        pose_landmarks_proto = landmark_pb2.NormalizedLandmarkList()
+        pose_landmarks_proto.landmark.extend([
+            landmark_pb2.NormalizedLandmark(x=landmark.x, y=landmark.y, z=landmark.z) for landmark in pose_landmarks
+        ])
+        mp.solutions.drawing_utils.draw_landmarks(
+            annotated_image,
+            pose_landmarks_proto,
+            mp.solutions.pose.POSE_CONNECTIONS,
+            mp.solutions.drawing_styles.get_default_pose_landmarks_style()
+        )
+    return annotated_image
+
+# Create a PoseLandmarker object
+options = PoseLandmarkerOptions(
+    base_options=BaseOptions(model_asset_path='pose_landmarker_full.task'),
+    running_mode=VisionRunningMode.VIDEO
+)
+
+# Create and initialize the PoseLandmarker
+detector = PoseLandmarker.create_from_options(options)
+
+# For video input:
+cap = cv2.VideoCapture(videoFileName)
+
+# Initialize flags and variables
+processing_active = False
+start_frame = None
+end_frame = None
+frame_number = 0
+
+# Initialize VideoWriter for output video
+frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+fps = int(cap.get(cv2.CAP_PROP_FPS))
+out = cv2.VideoWriter(videoOutputFileName + '.avi', cv2.VideoWriter_fourcc(*'MJPG'), fps, (frame_width, frame_height))
+
+# Swaying variables
+default_midpoint_x = 0
+default_midpoint_z = 0
+sway_threshold = 0.025  # Threshold for swaying detection
+rocking_threshold = 0.1  # Threshold for swaying detection
+midpoints_x = []
+midpoints_z = []
+midpointflag = False
+
+# Lists to store hand coordinates
+left_hand_x = []
+left_hand_y = []
+right_hand_x = []
+right_hand_y = []
+
+# First loop: Perform calculations
+while cap.isOpened():
+    success, image = cap.read()
+    if not success:
+        if processing_active and end_frame is None:
+            end_frame = frame_number - 1
+            print(f"Processing stopped at the last frame: {end_frame}")
+        break
+
+    frame_timestamp_ms = round(cap.get(cv2.CAP_PROP_POS_MSEC))
+    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=image_rgb)
+    detection_result = detector.detect_for_video(mp_image, frame_timestamp_ms)
+    annotated_image = draw_landmarks_on_image(image_rgb, detection_result)
+    annotated_image_bgr = cv2.cvtColor(annotated_image, cv2.COLOR_RGB2BGR)
+
+    # Only process frames between start_frame and end_frame
+    pose_landmarks_list = detection_result.pose_landmarks
+    if processing_active and start_frame is not None and (end_frame is None or frame_number <= end_frame):
+        if pose_landmarks_list:
+            for landmarks in pose_landmarks_list:
+                if len(landmarks) > 0:
+                    x16 = landmarks[16].x
+                    y16 = landmarks[16].y
+                    frame_array.append((x16, y16))
+                    print(f"Frame {frame_number}: X = {x16}, Y = {y16}")
+
+                    x12 = landmarks[12].x
+                    x11 = landmarks[11].x
+                    midpoint_x = abs(x12 - x11) * 0.5 + x12
+
+                    midpoints_x.append(midpoint_x)
+
+                    z12 = landmarks[12].z
+                    z11 = landmarks[11].z
+                    midpoint_z = (z12 - z11) * 0.5 + z12
+
+                    print(f"Frame {frame_number}: Midpoint Z = {midpoint_z}")
+
+                    midpoints_z.append(midpoint_z)
+
+                    # Store hand coordinates
+                    left_hand_x.append(landmarks[15].x)
+                    left_hand_y.append(landmarks[15].y * -1) #inverts one hand
+                    right_hand_x.append(landmarks[16].x)
+                    right_hand_y.append(landmarks[16].y)
+
+                    if midpointflag:
+                        default_midpoint_x = midpoint_x
+                        default_midpoint_z = midpoint_z
+                        midpointflag = False
+
+    # Display the current frame number
+    cv2.putText(image, f'Frame: {frame_number}', (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 2)
+
+    # Show the video feed
+    cv2.imshow('Video Feed', annotated_image_bgr)
+
+    # Write the annotated frame to the output video
+    out.write(annotated_image_bgr)
+
+    # Check for user input to start/stop processing
+    key = cv2.waitKey(5) & 0xFF
+    if key == ord('s'):  # Press 's' to mark the start frame
+        if not processing_active:
+            start_frame = frame_number
+            midpointflag = True
+            processing_active = True
+            print(f"Processing started at frame {start_frame}, Default Midpoint X = {default_midpoint_x}, Default Midpoint Z = {default_midpoint_z}")
+    elif key == ord('e'):  # Press 'e' to mark the end frame
+        if processing_active:
+            end_frame = frame_number
+            midpointflag = False
+            processing_active = False
+            print(f"Processing stopped at frame {end_frame}")
+    elif key == 27:  # Press 'ESC' to exit
+        break
+
+    frame_number += 1
+
+cap.release()
+out.release()
+cv2.destroyAllWindows()
+
+# If the end frame was never set, default to the last frame
+if end_frame is None:
+    end_frame = frame_number - 1
+    print(f"Processing stopped at the last frame: {end_frame}")
+
+# Find peaks and valleys in x and y coordinates
+x_peaks, _ = find_peaks([coord[0] for coord in frame_array])
+x_valleys, _ = find_peaks([-coord[0] for coord in frame_array])
+y_peaks, _ = find_peaks([coord[1] for coord in frame_array])
+y_valleys, _ = find_peaks([-coord[1] for coord in frame_array])
+
+# Function to filter peaks and valleys based on a threshold
+def filter_significant_points(points, threshold):
+    if len(points) == 0:
+        return []
+    filtered_points = [points[0]]  # Start with the first point
+    for i in range(1, len(points)):
+        if points[i] - filtered_points[-1] > threshold:
+            filtered_points.append(points[i])
+    return filtered_points
+
+# Apply filtering to ensure peaks and valleys are not closer than the threshold
+threshold = 10  # Define a threshold in number of frames
+filtered_x_peaks = filter_significant_points(x_peaks, threshold)
+filtered_x_valleys = filter_significant_points(x_valleys, threshold)
+filtered_y_peaks = filter_significant_points(y_peaks, threshold)
+filtered_y_valleys = filter_significant_points(y_valleys, threshold)
+
+# Combine the filtered peaks and valleys
+combined_peaks = sorted(set(x_peaks).union(set(y_peaks))) 
+combined_valleys = sorted(set(x_valleys).union(set(y_valleys)))  
+
+# Convert combined_peaks and combined_valleys to standard Python integers for safe processing
+combined_peaks = [int(p) for p in combined_peaks]
+combined_valleys = [int(v) for v in combined_valleys]
+
+filtered_significant_beats = combined_peaks.copy()  
+filtered_significant_valleys = combined_valleys.copy()
+filtered_significant_beats.extend(filtered_significant_valleys) 
+filtered_significant_beats = filter_significant_points(filtered_significant_beats, threshold)
+
+# OpenCV window name for displaying annotated frames
+window_name = 'Annotated Frames'
+frame_index = 0
+frame_skip = 1  # Process every frame
+
+# Initialize for second video capture loop
+cap = cv2.VideoCapture(videoFileName)
+frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+size = (frame_width, frame_height)
+fps = int(cap.get(cv2.CAP_PROP_FPS))  
+
+# Change codec if necessary
+out = cv2.VideoWriter(videoOutputFileName + '.avi', cv2.VideoWriter_fourcc(*'MJPG'), fps, size)
+
+# Initialize text properties
+font = cv2.FONT_HERSHEY_SIMPLEX
+font_scale = 2  
+font_thickness = 2
+font_color = (255, 255, 255)
+text_display_duration = 3  
+text_display_counter = 0
+
+# Initialize variables for beat detection
+prev_beat = None
+prev_bpm = 0
+bpm = None  
+last_frame_timestamp = 0
+frame_index = 0  
+
+detector = PoseLandmarker.create_from_options(options)
+
+# Second loop: Use stored results to annotate the output video
+while cap.isOpened():
+    success, image = cap.read()
+    if not success:
+        print("Ending processing.")
+        break
+
+    image_bgr = image
+
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    frame_timestamp_ms = round(cap.get(cv2.CAP_PROP_POS_MSEC))
+
+    image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=image_rgb)
+
+    detection_result = detector.detect_for_video(mp_image, frame_timestamp_ms)
+    annotated_image = draw_landmarks_on_image(image_rgb, detection_result)
+    annotated_image_bgr = cv2.cvtColor(annotated_image, cv2.COLOR_RGB2BGR)
+
+    if start_frame <= frame_index <= end_frame:
+        if frame_index in filtered_significant_beats:
+            text = "Beat!"
+            text_size = cv2.getTextSize(text, font, font_scale, font_thickness)[0]
+            text_x = (image_rgb.shape[1] - text_size[0]) // 2
+            text_y = (image_rgb.shape[0] + text_size[1]) // 2
+            cv2.putText(annotated_image_bgr, text, (text_x, text_y), font, font_scale, font_color, font_thickness)
+            if prev_beat is not None:
+                frames_between_beats = frame_index - prev_beat
+                time_between_beats = frames_between_beats / fps
+                bpm = 60 / time_between_beats
+            else:
+                bpm = prev_bpm
+            prev_beat = frame_index
+            bpm_info = f'Beats per minute (BPM) at frame {frame_index}: {bpm}\n'
+            output_file = videoFileName + '_auto_BPM.txt'
+            with open(output_file, 'a') as file:
+                print(bpm_info, end='')
+                file.write(bpm_info)
+            text_display_counter = text_display_duration
+
+    if text_display_counter > 0:
+        cv2.putText(annotated_image_bgr, text, (text_x, text_y), font, font_scale, font_color, font_thickness)
+        text_display_counter -= 1
+
+    # Swaying
+    if frame_index < len(midpoints_x):
+        midpoint_x = midpoints_x[frame_index]
+        if midpoint_x > default_midpoint_x + sway_threshold or midpoint_x < default_midpoint_x - sway_threshold:
+            cv2.putText(annotated_image_bgr, "Swaying", (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 2)
+
+    # Rocking
+    if frame_index < len(midpoints_z):
+        midpoint_z = midpoints_z[frame_index]
+        if midpoint_z > default_midpoint_z + rocking_threshold or midpoint_z < default_midpoint_z - rocking_threshold:
+            cv2.putText(annotated_image_bgr, "Rocking", (50, 150), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 2)
+
+    out.write(annotated_image_bgr)
+
+    cv2.putText(annotated_image_bgr, f'Frame: {frame_index}', (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 2)
+    cv2.imshow('Annotated Frames', annotated_image_bgr)
+
+    key = cv2.waitKey(5) & 0xFF
+    if key == 27:
+        break
+
+    frame_index += 1
+
+cap.release()
+out.release()
+cv2.destroyAllWindows()
+
+# Plot the swaying detection graph
+plt.figure(figsize=(12, 6))
+plt.plot(range(len(midpoints_x)), midpoints_x, label='Current Midpoint X', color='b', alpha=0.7)
+plt.axhline(y=default_midpoint_x, color='k', linestyle='-', label='Default Midpoint X')
+plt.axhline(y=default_midpoint_x + sway_threshold, color='r', linestyle='--', label='Upper Threshold X')
+plt.axhline(y=default_midpoint_x - sway_threshold, color='r', linestyle='--', label='Lower Threshold X')
+plt.title('Swaying Detection Over Frame Number')
+plt.xlabel('Frame Number')
+plt.ylabel('Midpoint X Value')
+plt.legend()
+plt.grid(True)
+plt.savefig(swayPlotName + '.png')
+plt.show()
+
+# Plot the rocking detection graph
+plt.figure(figsize=(12, 6))
+plt.plot(range(len(midpoints_z)), midpoints_z, label='Current Midpoint Z', color='b', alpha=0.7)
+plt.axhline(y=default_midpoint_z, color='k', linestyle='-', label='Default Midpoint Z')
+plt.axhline(y=default_midpoint_z + rocking_threshold, color='r', linestyle='--', label='Upper Threshold Z')
+plt.axhline(y=default_midpoint_z - rocking_threshold, color='r', linestyle='--', label='Lower Threshold Z')
+plt.title('Rocking Detection Over Frame Number')
+plt.xlabel('Frame Number')
+plt.ylabel('Midpoint Z Value')
+plt.legend()
+plt.grid(True)
+plt.savefig(rockingPlotName + '.png')
+plt.show()
+
+# Plot the X and Y coordinates graph
+plt.figure(figsize=(12, 6))
+plt.plot(range(len(frame_array)), [coord[0] for coord in frame_array], label='X Coordinates', color='b', alpha=0.7)
+plt.plot(range(len(frame_array)), [coord[1] for coord in frame_array], label='Y Coordinates', color='g', alpha=0.7)
+plt.axvspan(start_frame, end_frame, color='yellow', alpha=0.3, label="Processed Range")
+plt.plot(filtered_x_peaks, [frame_array[i][0] for i in filtered_x_peaks], "x", label="X Peaks")
+plt.plot(filtered_x_valleys, [frame_array[i][0] for i in filtered_x_valleys], "x", label="X Valleys")
+plt.plot(filtered_y_peaks, [frame_array[i][1] for i in filtered_y_peaks], "o", label="Y Peaks")
+plt.plot(filtered_y_valleys, [frame_array[i][1] for i in filtered_y_valleys], "o", label="Y Valleys")
+plt.title('X and Y Coordinates Over Frame Number')
+plt.xlabel('Frame Number')
+plt.ylabel('Coordinate Value')
+plt.legend()
+plt.grid(True)
+plt.savefig(plotName + '.png')
+plt.show()
+
+# Plot the hand coordinates graph
+plt.figure(figsize=(12, 6))
+plt.plot(range(len(left_hand_x)), [x - left_hand_x[0] for x in left_hand_x], label='Left Hand X', color='b', alpha=0.7)
+plt.plot(range(len(right_hand_x)), [x - right_hand_x[0] for x in right_hand_x], label='Right Hand X', color='g', alpha=0.7)
+plt.plot(range(len(left_hand_y)), [y - left_hand_y[0] for y in left_hand_y], label='Left Hand Y', color='r', alpha=0.7)
+plt.plot(range(len(right_hand_y)), [y - right_hand_y[0] for y in right_hand_y], label='Right Hand Y', color='m', alpha=0.7)
+plt.axhline(y=0, color='k', linestyle='-', label='Default Line')
+plt.title('Hand Coordinates Over Frame Number')
+plt.xlabel('Frame Number')
+plt.ylabel('Coordinate Value')
+plt.legend()
+plt.grid(True)
+plt.savefig(handsPlotName + '.png')
+plt.show()
+
+cv2.destroyAllWindows()
