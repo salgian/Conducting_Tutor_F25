@@ -23,6 +23,8 @@ class mediaPipeDeclaration:
     def initialize_pose_detection(self):
         """Create and return a MediaPipe Pose instance."""
         return self.mp_pose.Pose(
+            static_image_mode=False,        # tracking mode (re-detect only when lost)
+            model_complexity=0,             # Lite model — ~2-3× faster
             min_detection_confidence=self.MIN_DETECTION_CONFIDENCE,
             min_tracking_confidence=self.MIN_TRACKING_CONFIDENCE,
         )

@@ -1,8 +1,8 @@
 """
-inference_loop.py
------------------
-Core frame-by-frame inference loop.
-Reads video frames, runs pose detection, normalises features,
+inference_loop_xy.py
+--------------------
+Core frame-by-frame inference loop (XY-only / 2-feature variant).
+Reads video frames, runs pose detection, extracts raw wrist XY,
 feeds sliding windows to the model, and triggers beat detections.
 
 Optimised for real-time playback:
@@ -83,7 +83,7 @@ def _downscale_for_pose(frame, max_width=POSE_MAX_WIDTH):
 
 def extract_wrist_features(frame, mp_handler, pose, landmarks, normalizer):
     """
-    Detect wrist in one frame, return the 6-element feature list.
+    Detect wrist in one frame, return the 2-element feature list [wx, wy].
     Returns (features_list, wrist_x, wrist_y).
     features_list is None if the wrist was not detected.
     """
@@ -92,7 +92,9 @@ def extract_wrist_features(frame, mp_handler, pose, landmarks, normalizer):
     results = mp_handler.process_pose_detection(pose, rgb)
     landmarks.update_landmarks(results)
     wx, wy = landmarks.get_wrist()
-    feat = normalizer.process_as_list(wx, wy)
+    if wx is None or wy is None:
+        return None, wx, wy
+    feat = [wx, wy]
     return feat, wx, wy
 
 
