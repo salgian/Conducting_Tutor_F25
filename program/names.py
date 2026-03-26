@@ -1,7 +1,7 @@
 import os
 
-VIDEO_PATH = "C:/Users/Jeffrey Ernest/Desktop/videos/Marchingband(2).mp4"
-EXPORT_PATH = "output\Marchingband(2)_analysis_20250422_190948\conducting_analysis"
+VIDEO_PATH = ""
+EXPORT_PATH = "output\_analysis_20260311_154514\conducting_analysis"
 
 # returns the name of the video file being processed
 def initialize_video():

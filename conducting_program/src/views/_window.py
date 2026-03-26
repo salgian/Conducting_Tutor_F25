@@ -6,6 +6,8 @@ from .live import LiveView
 from .edit import EditView
 from .active import ActiveView
 from .live_stats import LiveStatsView
+from .video import VideoView
+from .video_process import VideoProcessView
 
 from src.core.shared.settings import Settings
 from src.core.shared.ui_bridge import UIBridge
@@ -63,6 +65,8 @@ class MainWindow:
         self.edit_frame: tk.Frame | None = None
         self.active_frame: tk.Frame | None = None
         self.stats_frame: tk.Frame | None = None
+        self.video_frame: tk.Frame | None = None
+        self.video_process_frame: tk.Frame | None = None
         
         # Navigation tracking
         self.nav_history: list[str] = []
@@ -84,6 +88,8 @@ class MainWindow:
                 self.show_active()
             elif prev_view == "stats":
                 self.show_stats()
+            elif prev_view == "video":
+                self.show_video()
         else:
             self.show_home()
     
@@ -117,6 +123,22 @@ class MainWindow:
 
     def on_video(self) -> None:
         """Navigate to video view (not implemented)."""
+        self._push_nav_history("home")
+        if self.video_frame is None:
+            self.video_frame = VideoView(
+            self.container,
+            on_back=self._go_back,
+            on_open_settings=self.on_settings,
+            on_edit_path=self.on_edit_path,
+            on_start = self.on_video_process,
+            ui_bridge=self.ui_bridge,
+            on_state_change=self._on_state_change,
+            )
+        self.video_frame.grid(row=0, column=0, sticky="nsew")
+        
+
+        #self.video_frame.initialize_backend()
+        self.show_video()
         pass
         
     def show_settings(self) -> None:
@@ -132,6 +154,8 @@ class MainWindow:
             self.active_frame.lower()
         if self.stats_frame is not None:
             self.stats_frame.lower()
+        if self.video_frame is not None:
+            self.video_frame.lower()
         self.settings_frame.tkraise()
         self.current_view = "settings"
 
@@ -144,6 +168,8 @@ class MainWindow:
             self.settings_frame.lower()
         if self.edit_frame is not None:
             self.edit_frame.lower()
+        if self.video_frame is not None:
+            self.video_frame.lower()
         if self.active_frame is not None:
             self.active_frame.lower()
             # Stop metrics updates when leaving active view
@@ -153,6 +179,27 @@ class MainWindow:
             self.stats_frame.lower()
         self.live_frame.tkraise()
         self.current_view = "live"
+    
+    def show_video(self) -> None:
+        if self.video_frame is None:
+            return
+        if self.home_frame is not None:
+            self.home_frame.lower()
+        if self.settings_frame is not None:
+            self.settings_frame.lower()
+        if self.edit_frame is not None:
+            self.edit_frame.lower()
+        if self.live_frame is not None:
+            self.live_frame.lower()
+        if self.active_frame is not None:
+            self.active_frame.lower()
+            # Stop metrics updates when leaving active view
+            if self.active_frame:
+                self.active_frame.stop_metrics_updates()
+        if self.stats_frame is not None:
+            self.stats_frame.lower()
+        self.video_frame.tkraise()
+        self.current_view = "video"
     
     def show_edit(self) -> None:
         if self.edit_frame is None:
@@ -167,8 +214,31 @@ class MainWindow:
             self.active_frame.lower()
         if self.stats_frame is not None:
             self.stats_frame.lower()
+        if self.video_frame is not None:
+            self.video_frame.lower()
         self.edit_frame.tkraise()
         self.current_view = "edit"
+
+    def show_video_process(self) -> None:
+        print("still working")
+        if self.video_process_frame is None:
+            return
+        if self.edit_frame is not None:
+            self.edit_frame.lower()
+        if self.home_frame is not None:
+            self.home_frame.lower()
+        if self.settings_frame is not None:
+            self.settings_frame.lower()
+        if self.live_frame is not None:
+            self.live_frame.lower()
+        if self.active_frame is not None:
+            self.active_frame.lower()
+        if self.stats_frame is not None:
+            self.stats_frame.lower()
+        if self.video_frame is not None:
+            self.video_frame.lower()
+        self.video_process_frame.tkraise()
+        self.current_view = "video_process"
 
     def on_settings(self) -> None:
         """Navigate to settings view."""
@@ -182,7 +252,7 @@ class MainWindow:
             self.settings_frame.refresh_settings()
 
         self.show_settings()
-
+    
     def on_edit_path(self) -> None:
         """Navigate to edit path view."""
         self._push_nav_history("live")
@@ -195,6 +265,18 @@ class MainWindow:
             self.edit_frame.grid(row=0, column=0, sticky="nsew")
         self.show_edit()
 
+    def on_video_process(self) -> None:
+        self._push_nav_history("video")
+        if self.video_process_frame is None:
+            self.video_process_frame = VideoProcessView(
+                self.container,
+                on_back=self._go_back,
+            )
+            self.video_process_frame.grid(row=0, column=0, sticky="nsew")
+            
+        print("working?")
+        self.show_video_process()
+    
     def on_start(self) -> None:
         """Navigate to active conducting view - triggered by Start button or movement detection."""
         # Wait for camera to be ready before showing active view
@@ -267,6 +349,8 @@ class MainWindow:
             self.edit_frame.lower()
         if self.stats_frame is not None:
             self.stats_frame.lower()
+        if self.video_frame is not None:
+            self.video_frame.lower()
         self.active_frame.tkraise()
         self.current_view = "active"
 
@@ -323,6 +407,8 @@ class MainWindow:
             self.active_frame.stop_metrics_updates()
         if self.live_frame:
             self.live_frame.stop_backend()
+        if self.video_frame:
+            self.video_frame.stop_backend()
         
         if self.ui_bridge:
             self.ui_bridge.stop_processing()
@@ -330,6 +416,7 @@ class MainWindow:
         
         self.live_frame = None
         self.active_frame = None
+        self.video_frame = None
 
         if self.settings_frame is not None:
             self.settings_frame.lower()
