@@ -1,5 +1,6 @@
 import mediapipe as mp
 import numpy as np
+import cv2
 from mediapipe.framework.formats import landmark_pb2
 
 class mediaPipeDeclaration:
@@ -53,14 +54,15 @@ class mediaPipeDeclaration:
 
     @staticmethod
     def draw_pose_landmarks(frame, results):
-        # Draw pose landmarks on the frame
+        # Draw only the conducting-hand marker (right wrist, landmark 15).
         if results.pose_landmarks:
-            mp.solutions.drawing_utils.draw_landmarks(
-                frame,
-                results.pose_landmarks,
-                mp.solutions.pose.POSE_CONNECTIONS,
-                mp.solutions.drawing_styles.get_default_pose_landmarks_style()
-            )
+            landmarks = results.pose_landmarks.landmark
+            if len(landmarks) > 15:
+                wrist = landmarks[15]
+                h, w = frame.shape[:2]
+                x_px = int(wrist.x * w)
+                y_px = int(wrist.y * h)
+                cv2.circle(frame, (x_px, y_px), 7, (0, 255, 0), -1)
         return frame
 
     @staticmethod

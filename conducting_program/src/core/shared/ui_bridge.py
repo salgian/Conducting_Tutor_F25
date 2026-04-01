@@ -13,7 +13,8 @@ from src.core.live.clock import ClockManager
 from src.core.live.visual import VisualManager
 from src.core.live.sound import SoundManager
 from src.core.live.metronome import MetronomeManager
-from src.core.live.beat import BeatManager
+from src.core.live.beat_marker import BeatMarkerManager
+from src.core.shared.beat_detection_model import BeatDetectionModel, BPMTracker
 from src.core.shared.sway import SwayDetection
 from src.core.shared.mirror import MirrorDetection
 from src.core.shared.elbow import ElbowDetection
@@ -84,7 +85,9 @@ class UIBridge:
         visual_manager = VisualManager(self.settings.get_time_signature())
         sound_manager = SoundManager()
         metronome_manager = MetronomeManager()
-        beat_manager = BeatManager(self.settings.get_time_signature())
+        beat_marker_manager = BeatMarkerManager(self.settings.get_time_signature())
+        beat_detection_model = BeatDetectionModel()
+        bpm_tracker = BPMTracker(report_interval_seconds=5.0)
         
         # Start continuous audio warmup in background
         sound_manager.start_continuous_warmup()
@@ -96,13 +99,15 @@ class UIBridge:
         midpoint_processor = MidpointProcessor()
         
         # Initialize metronome and visual manager
-        metronome_manager.initialize(self.settings, sound_manager, visual_manager, beat_manager)
-        visual_manager.set_beat_manager(beat_manager)
+        metronome_manager.initialize(self.settings, sound_manager, visual_manager, beat_marker_manager)
+        visual_manager.set_beat_marker_manager(beat_marker_manager)
         
         # Create components dictionary
         self.components = {
-            'beat_manager': metronome_manager,
-            'beat_position_manager': beat_manager,
+            'metronome_manager': metronome_manager,
+            'beat_marker_manager': beat_marker_manager,
+            'beat_detection_model': beat_detection_model,
+            'bpm_tracker': bpm_tracker,
             'midpoint_processor': midpoint_processor,
             'sway_detection': sway_detection,
             'mirror_detection': mirror_detection,
@@ -182,7 +187,7 @@ class UIBridge:
         pose_landmarks = self.components['pose_landmarks']
         clock_manager = self.components['clock_manager']
         visual_manager = self.components['visual_manager']
-        metronome_manager = self.components['beat_manager']
+        metronome_manager = self.components['metronome_manager']
         sound_manager = self.components['sound_manager']
         
         # Frame skipping optimization for pose detection
@@ -190,8 +195,11 @@ class UIBridge:
         last_detection_result = None
         
         while self.processing_active:
+            # Cap to 30 FPS before processing this frame.
+            camera_manager.enforce_fps_cap()
+
             # Process frame or reuse previous detection result
-            success, detection_result = self._process_frame_with_skipping(
+            success, detection_result, did_calculate = self._process_frame_with_skipping(
                 camera_manager,
                 media_pipe_declaration,
                 pose,
@@ -208,14 +216,14 @@ class UIBridge:
             last_detection_result = detection_result
             frame_counter += 1
             
-            # Update pose landmarks with current or cached detection result
+            # Keep inference skipping, but run state logic every frame.
             if detection_result:
                 pose_landmarks.update_landmarks(detection_result)
             
             # Update per-frame visuals
             visual_manager.update_frame_visuals(camera_manager, clock_manager)
             
-            # Process state transitions
+            # Process state transitions every frame
             self._process_state_transitions(system_state, metronome_manager)
             
             # Store frame in queue for UI access
@@ -279,7 +287,8 @@ class UIBridge:
             last_detection_result: Previously cached detection result
             
         Returns:
-            tuple: (success, detection_result) - success status and current/cached detection result
+            tuple: (success, detection_result, did_calculate) - success status, current/cached
+                   detection result, and whether this frame ran full pose inference
         """
         # Capture and prepare frame
         success, frame = camera_manager.capture_frame()
@@ -287,21 +296,23 @@ class UIBridge:
             return False, None
         
         frame = cv2.flip(frame, 1)  # Flip the frame horizontally
-        rgb_frame = camera_manager.convert_to_rgb(frame)  # Convert BGR to RGB
         
         # Frame skipping optimization: Process pose detection every 2nd frame
         # Reuse previous results on alternate frames
         if frame_counter % 2 == 0:
             # Run full MediaPipe pose detection
+            rgb_frame = camera_manager.convert_to_rgb(frame)  # Convert only on calculation frames
             detection_result = media_pipe_declaration.process_pose_detection(pose, rgb_frame)
+            did_calculate = True
         else:
             # Reuse previous detection result (skip expensive pose processing)
             detection_result = last_detection_result
+            did_calculate = False
         
         # Draw pose landmarks and store in visual manager
         visual_manager.current_frame = media_pipe_declaration.draw_pose_landmarks(frame, detection_result)
         
-        return True, detection_result
+        return True, detection_result, did_calculate
     
     def _cleanup_components(self):
         """Clean up all component resources and stop all threads."""
@@ -376,7 +387,7 @@ class UIBridge:
         if not self.components:
             return
         
-        metronome_manager = self.components.get('beat_manager')
+        metronome_manager = self.components.get('metronome_manager')
         sound_manager = self.components.get('sound_manager')
         
         if metronome_manager:
@@ -429,8 +440,8 @@ class UIBridge:
         """
         self.settings.set_beats_per_minute(bpm)
         
-        if 'beat_manager' in self.components:
-            metronome_manager = self.components['beat_manager']
+        if 'metronome_manager' in self.components:
+            metronome_manager = self.components['metronome_manager']
             metronome_manager.bpm = bpm
             metronome_manager.beat_interval = 60 / bpm
     
@@ -442,14 +453,14 @@ class UIBridge:
         """
         self.settings.set_time_signature(ts)
         
-        if 'beat_manager' in self.components:
-            metronome_manager = self.components['beat_manager']
+        if 'metronome_manager' in self.components:
+            metronome_manager = self.components['metronome_manager']
             metronome_manager.time_signature = ts
             metronome_manager.beats_per_measure = int(ts.split('/')[0])
         
-        if 'beat_position_manager' in self.components:
-            beat_manager = self.components['beat_position_manager']
-            beat_manager.time_signature = ts
+        if 'beat_marker_manager' in self.components:
+            beat_marker_manager = self.components['beat_marker_manager']
+            beat_marker_manager.time_signature = ts
         
         if 'visual_manager' in self.components:
             visual_manager = self.components['visual_manager']

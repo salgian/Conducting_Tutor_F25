@@ -4,10 +4,13 @@ import time
 class CameraManager:
 
     def __init__(self, camera_index=0):
-        self.camera_index = camera_index
+        self.camera_index = "C://Users//Jeffrey Ernest//Desktop//ml_videos//Marchingband(2).mp4"
         self.cap = None
         self.prev_frame_time = 0
         self.new_frame_time = 0
+        self.target_fps = 30
+        self.target_frame_duration = 1.0 / self.target_fps
+        self.next_frame_deadline = 0.0
         
     def initialize_camera(self):
         """Initialize camera with best available resolution."""
@@ -64,7 +67,24 @@ class CameraManager:
         else:
             fps = 0
         self.prev_frame_time = self.new_frame_time
-        return int(fps)
+        return min(int(fps), self.target_fps)
+
+    def enforce_fps_cap(self):
+        """Throttle loop rate to target FPS."""
+        now = time.perf_counter()
+        if self.next_frame_deadline == 0.0:
+            self.next_frame_deadline = now + self.target_frame_duration
+            return
+
+        sleep_time = self.next_frame_deadline - now
+        if sleep_time > 0:
+            time.sleep(sleep_time)
+
+        # Keep fixed cadence; if behind, reset schedule from now.
+        self.next_frame_deadline += self.target_frame_duration
+        now_after_sleep = time.perf_counter()
+        if self.next_frame_deadline < now_after_sleep:
+            self.next_frame_deadline = now_after_sleep + self.target_frame_duration
     
     def cleanup(self):
         # Clean up camera resources

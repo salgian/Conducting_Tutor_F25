@@ -25,17 +25,17 @@ class MetronomeManager:
         # -------------------- External Components --------------------
         self.sound_manager = None
         self.visual_manager = None
-        self.beat_manager = None  # BeatManager for visual coordination
+        self.beat_marker_manager = None  # BeatMarkerManager for visual coordination
         
     # -------------------- Initialization --------------------
     
-    def initialize(self, settings, sound_manager, visual_manager, beat_manager):
+    def initialize(self, settings, sound_manager, visual_manager, beat_marker_manager):
         """Initialize the metronome manager with settings and external components."""
         self.bpm = settings.get_beats_per_minute()
         self.time_signature = settings.get_time_signature()
         self.sound_manager = sound_manager
         self.visual_manager = visual_manager
-        self.beat_manager = beat_manager
+        self.beat_marker_manager = beat_marker_manager
         self.beat_interval = 60 / self.bpm
         self.beats_per_measure = int(self.time_signature.split('/')[0])
         print(f"MetronomeManager initialized: {self.bpm} BPM, {self.time_signature} time signature")
@@ -83,9 +83,9 @@ class MetronomeManager:
         # Spawn daemon thread for sound (non-blocking)
         threading.Thread(target=self.sound_manager.play_metronome_sound, daemon=True).start()
 
-        # Trigger visual display via BeatManager (visual timing managed there)
-        if self.beat_manager:
-            self.beat_manager.trigger_beat_visual(beat_time)
+        # Trigger visual display via BeatMarkerManager (visual timing managed there)
+        if self.beat_marker_manager:
+            self.beat_marker_manager.trigger_beat_visual(beat_time)
     
     # -------------------- Accessor Methods --------------------
     

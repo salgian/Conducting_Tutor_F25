@@ -35,7 +35,7 @@ from data_processor import Normalizer
 # ── Configuration ────────────────────────────────────────────────────────────
 
 SEQ_LEN             = 11
-BEAT_THRESHOLD      = 0.5
+BEAT_THRESHOLD      = 0.95
 BEAT_DISPLAY_FRAMES = 3      # quick flash duration
 MIN_BEAT_GAP        = 10     # minimum frames between consecutive detections
 POSE_MAX_WIDTH      = 640    # downscale frames to this width for MediaPipe

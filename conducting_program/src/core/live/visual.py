@@ -6,6 +6,7 @@ from src.core.live.visuals.timing_visuals import TimingVisualizer
 from src.core.live.visuals.midpoint_visuals import MidpointVisualizer
 from src.core.live.visuals.feedback_visuals import FeedbackVisualizer
 from src.core.live.visuals.state_visuals import StateVisualizer
+from src.core.live.visuals.bpm_visuals import BPMVisualizer
 
 class VisualManager:
     """Orchestrates all visual elements for the conducting tutor."""
@@ -15,7 +16,7 @@ class VisualManager:
         self.current_frame = None
         self.window_name = 'Live Pose Detection'
         self.window_initialized = False
-        self.beat_manager = None
+        self.beat_marker_manager = None
         self.components = None
         
         # Visualizer instances (initialized when components are set)
@@ -24,10 +25,13 @@ class VisualManager:
         self.midpoint_visual = None
         self.feedback_visual = None
         self.state_visual = None
+        self.bpm_visual = None
+        self.beat_text_duration = 0.4
+        self.beat_text_until = 0.0
     
-    def set_beat_manager(self, beat_manager):
-        """Set the beat manager for position data and hit detection."""
-        self.beat_manager = beat_manager
+    def set_beat_marker_manager(self, beat_marker_manager):
+        """Set the beat marker manager for position data and hit detection."""
+        self.beat_marker_manager = beat_marker_manager
     
     def set_components(self, components):
         """Set components dict and initialize all visualizers."""
@@ -36,11 +40,12 @@ class VisualManager:
     
     def _initialize_visualizers(self):
         """Initialize all specialized visualizer instances during startup."""
-        self.beat_visual = BeatVisualizer(self.beat_manager)
+        self.beat_visual = BeatVisualizer(self.beat_marker_manager)
         self.timing_visual = TimingVisualizer()
         self.midpoint_visual = MidpointVisualizer()
         self.feedback_visual = FeedbackVisualizer()
         self.state_visual = StateVisualizer()
+        self.bpm_visual = BPMVisualizer()
         print("Visualizers initialized")
 
     # -------- Frame Management --------
@@ -144,6 +149,31 @@ class VisualManager:
         program_time = clock_manager.format_time(clock_manager.get_program_elapsed_time())
         session_time = clock_manager.format_time(clock_manager.get_session_elapsed_time())
         self.timing_visual.draw_fps_and_timers(self.current_frame, fps, program_time, session_time)
+        
+    def trigger_bpm_display(self, bpm, beat_count, current_time):
+        """Trigger the BPM overlay display."""
+        if self.bpm_visual:
+            self.bpm_visual.trigger_display(bpm, beat_count, current_time)
+
+    def trigger_beat_display(self, current_time):
+        """Trigger a short 'beat' overlay on the right side."""
+        self.beat_text_until = current_time + self.beat_text_duration
+
+    def _draw_beat_overlay(self, current_time):
+        """Draw 'beat' on the right side while active."""
+        if current_time > self.beat_text_until:
+            return
+
+        frame_height, frame_width = self.current_frame.shape[:2]
+        text = "beat"
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 1.0
+        thickness = 2
+        (text_w, text_h), _ = cv2.getTextSize(text, font, font_scale, thickness)
+        x = frame_width - text_w - 30
+        y = max(80, frame_height // 2)
+
+        cv2.putText(self.current_frame, text, (x, y), font, font_scale, (0, 255, 0), thickness)
     
     # -------- Public API: State Display Methods --------
     
@@ -152,21 +182,22 @@ class VisualManager:
         self.state_visual.draw_setup_label(self.current_frame)
         self.beat_visual.draw_beat_circles(self.current_frame, current_beat=1, mode='setup')
     
-    def display_countdown_visuals(self, beat_manager):
+    def display_countdown_visuals(self, metronome_manager):
         """Orchestrate countdown state visuals."""
         self.state_visual.draw_countdown_label(self.current_frame)
-        self.beat_visual.draw_beat_circles(self.current_frame, beat_manager.get_current_beat(), mode='countdown')
+        self.beat_visual.draw_beat_circles(self.current_frame, metronome_manager.get_current_beat(), mode='countdown')
     
     def display_processing_visuals(self):
         """Orchestrate processing state visuals."""
         # Get components
-        beat_position_manager = self.components['beat_position_manager']
-        metronome_manager = self.components['beat_manager']
+        beat_marker_manager = self.components['beat_marker_manager']
+        metronome_manager = self.components['metronome_manager']
         sway_detection = self.components['sway_detection']
         mirror_detection = self.components['mirror_detection']
         elbow_detection = self.components['elbow_detection']
         pose_landmarks = self.components['pose_landmarks']
         midpoint_processor = self.components['midpoint_processor']
+        clock_manager = self.components['clock_manager']
         frame_width, frame_height = self.get_frame_dimensions()
         
         # State label
@@ -183,8 +214,13 @@ class VisualManager:
         self.beat_visual.draw_next_beat_preview(self.current_frame, metronome_manager.get_current_beat())
         
         # Current beat (solid red) - only shown when flashing
-        if beat_position_manager.get_show_visual():
+        if beat_marker_manager.get_show_visual():
             self.beat_visual.draw_beat_circles(self.current_frame, metronome_manager.get_current_beat(), mode='processing')
+            
+        # Draw BPM overlay if active
+        if self.bpm_visual:
+            self.bpm_visual.draw_bpm_overlay(self.current_frame, clock_manager.get_current_timestamp())
+        self._draw_beat_overlay(clock_manager.get_current_timestamp())
         
         # Midpoint visualization (drawn after beat circles so lines are visible on top)
         midpoint = midpoint_processor.get_live_midpoint()
@@ -213,7 +249,7 @@ class VisualManager:
     def display_ending_visuals(self):
         """Orchestrate ending state visuals."""
         self.state_visual.draw_ending_label(self.current_frame)
-        # hit_percentage = self.beat_manager.get_hit_percentage() if self.beat_manager else None
+        # hit_percentage = self.beat_marker_manager.get_hit_percentage() if self.beat_marker_manager else None
         hit_percentage = None
         self.state_visual.draw_session_complete_message(self.current_frame, hit_percentage)
     

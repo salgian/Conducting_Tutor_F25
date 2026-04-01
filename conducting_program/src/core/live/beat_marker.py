@@ -4,7 +4,7 @@ import math
 import threading
 import time
 
-class BeatManager:
+class BeatMarkerManager:
     """Manages beat positions, hit detection, and visual coordination."""
     
     def __init__(self, time_signature):

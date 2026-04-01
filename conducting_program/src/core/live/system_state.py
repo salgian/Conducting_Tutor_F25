@@ -182,7 +182,7 @@ class CountdownState:
         return self.state_name
     
     def main(self):
-        metronome_manager = self.components['beat_manager']  # MetronomeManager (has the thread)
+        metronome_manager = self.components['metronome_manager']  # MetronomeManager (has the thread)
         visual_manager = self.components['visual_manager']
         
         if not self.first_frame:
@@ -214,7 +214,11 @@ class ProcessingState:
         self.midpoint_initialized = False
 
         # Reset beat and measure count to start from 1
-        components['beat_manager'].reset_count()
+        components['metronome_manager'].reset_count()
+        
+        # Reset ML tracking for a fresh session
+        components['beat_detection_model'].reset()
+        components['bpm_tracker'].reset()
 
         # Start session clock for timing
         components['clock_manager'].start_session_clock()
@@ -231,9 +235,11 @@ class ProcessingState:
         sway_detection = self.components['sway_detection']
         mirror_detection = self.components['mirror_detection']
         elbow_detection = self.components['elbow_detection']
-        beat_manager = self.components['beat_position_manager']
-        metronome_manager = self.components['beat_manager']
+        beat_marker_manager = self.components['beat_marker_manager']
+        metronome_manager = self.components['metronome_manager']
         visual_manager = self.components['visual_manager']
+        beat_detection_model = self.components['beat_detection_model']
+        bpm_tracker = self.components['bpm_tracker']
         
         if not self.first_frame:
             # Normal processing logic
@@ -246,7 +252,27 @@ class ProcessingState:
                 mirror_detection.main(pose_landmarks, clock_manager, midpoint_processor.get_live_midpoint())
             
             elbow_detection.main(pose_landmarks)
-            beat_manager.main(pose_landmarks, metronome_manager, visual_manager)
+            beat_marker_manager.main(pose_landmarks, metronome_manager, visual_manager)
+            
+            # --- ML Beat Detection ---
+            right_wrist = pose_landmarks.get_pose_landmark_15()
+            if right_wrist and right_wrist[0] is not None:
+                x, y = right_wrist
+                beat_detected = beat_detection_model.feed_frame(x, y)
+                
+                now = clock_manager.get_current_timestamp()
+                if beat_detected:
+                    bpm_tracker.record_beat(now)
+                    visual_manager.trigger_beat_display(now)
+                
+                # Report BPM every 5 seconds overlay
+                if bpm_tracker.should_report(now):
+                    # Use a rolling window so BPM reflects current tempo changes.
+                    avg_bpm = bpm_tracker.get_average_bpm(window_seconds=bpm_tracker.report_interval)
+                    if avg_bpm is not None:
+                        print(f"[BPM] Average: {avg_bpm:.1f} BPM (beats detected: {bpm_tracker.beat_count})")
+                        visual_manager.trigger_bpm_display(avg_bpm, bpm_tracker.beat_count, now)
+                    bpm_tracker.mark_reported(now)
             
             # Display processing visuals
             visual_manager.display_processing_visuals()
@@ -274,7 +300,7 @@ class EndingState:
         return self.state_name
     
     def main(self):
-        metronome_manager = self.components['beat_manager']
+        metronome_manager = self.components['metronome_manager']
         sound_manager = self.components['sound_manager']
         visual_manager = self.components['visual_manager']
         

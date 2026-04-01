@@ -249,7 +249,7 @@ class MainWindow:
                 if current_state.get_state_name() == "setup":
                     # Force transition to countdown
                     system_state.change_state("countdown")
-                    metronome_manager = self.ui_bridge.components.get('beat_manager')
+                    metronome_manager = self.ui_bridge.components.get('metronome_manager')
                     if metronome_manager:
                         metronome_manager.start()
 

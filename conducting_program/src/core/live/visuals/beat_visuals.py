@@ -3,8 +3,8 @@ import cv2
 class BeatVisualizer:
     """Handles all beat circle and number visualization plus HIT feedback."""
     
-    def __init__(self, beat_manager):
-        self.beat_manager = beat_manager
+    def __init__(self, beat_marker_manager):
+        self.beat_marker_manager = beat_marker_manager
     
     def draw_beat_circles(self, frame, current_beat, mode):
         """Unified method - draws beat circles with behavior based on state mode.
@@ -70,10 +70,10 @@ class BeatVisualizer:
     
     def draw_hit_feedback(self, frame):
         """Display HIT! message when beat circle is hit by hand centroid."""
-        if self.beat_manager is None:
+        if self.beat_marker_manager is None:
             return
         
-        hit_status = self.beat_manager.get_current_hit_status()
+        hit_status = self.beat_marker_manager.get_current_hit_status()
         if hit_status == "hit":
             frame_height, frame_width = frame.shape[:2]
             text_x = frame_width // 2 - 50
@@ -96,9 +96,9 @@ class BeatVisualizer:
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
     
     def _get_circle_positions(self):
-        """Get circle positions from beat manager with validation."""
-        if self.beat_manager is None:
+        """Get circle positions from beat marker manager with validation."""
+        if self.beat_marker_manager is None:
             return []
-        positions = self.beat_manager.get_circle_positions()
+        positions = self.beat_marker_manager.get_circle_positions()
         return positions if positions else []
 
