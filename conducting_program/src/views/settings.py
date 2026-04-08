@@ -3,6 +3,7 @@ import tkinter.ttk as ttk
 from typing import Callable, Optional
 
 from src.core.shared.settings import Settings
+from src.core.shared.ui_bridge import UIBridge
 
 
 widget_background = '#463F3A'
@@ -19,9 +20,15 @@ class SettingsView(tk.Frame):
     the settings content area below.
     """
 
-    def __init__(self, master: tk.Misc | None = None, on_back: Optional[Callable[[], None]] = None) -> None:
+    def __init__(
+        self,
+        master: tk.Misc | None = None,
+        on_back: Optional[Callable[[], None]] = None,
+        ui_bridge: Optional[UIBridge] = None
+    ) -> None:
         super().__init__(master=master, bg=widget_background)
         self._on_back = on_back
+        self.ui_bridge = ui_bridge
         self.settings = Settings()  # Get singleton instance
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)
@@ -121,6 +128,57 @@ class SettingsView(tk.Frame):
         camera_entry.grid(row=5, column=0, sticky="w")
         camera_entry.bind("<FocusOut>", lambda _e: self._save_camera())
         camera_entry.bind("<Return>", lambda _e: self._save_camera())
+
+        toggles_label = tk.Label(
+            content, text="Live Feature Toggles", bg=camera_placeholder_color, fg=widget_background, font=("Poppins", 14, "bold")
+        )
+        toggles_label.grid(row=6, column=0, sticky="w", pady=(14, 6))
+
+        self.metronome_enabled_var = tk.BooleanVar()
+        self.markers_enabled_var = tk.BooleanVar()
+        self.conducting_hand_marker_enabled_var = tk.BooleanVar()
+
+        metronome_toggle = tk.Checkbutton(
+            content,
+            text="Metronome",
+            variable=self.metronome_enabled_var,
+            bg=camera_placeholder_color,
+            fg=widget_background,
+            selectcolor="#D9D9D9",
+            activebackground=camera_placeholder_color,
+            activeforeground=widget_background,
+            font=("Poppins", 12, "bold"),
+            command=self._save_feature_toggles,
+        )
+        metronome_toggle.grid(row=7, column=0, sticky="w")
+
+        markers_toggle = tk.Checkbutton(
+            content,
+            text="Beat Markers",
+            variable=self.markers_enabled_var,
+            bg=camera_placeholder_color,
+            fg=widget_background,
+            selectcolor="#D9D9D9",
+            activebackground=camera_placeholder_color,
+            activeforeground=widget_background,
+            font=("Poppins", 12, "bold"),
+            command=self._save_feature_toggles,
+        )
+        markers_toggle.grid(row=8, column=0, sticky="w")
+
+        hand_marker_toggle = tk.Checkbutton(
+            content,
+            text="Conducting Hand Marker",
+            variable=self.conducting_hand_marker_enabled_var,
+            bg=camera_placeholder_color,
+            fg=widget_background,
+            selectcolor="#D9D9D9",
+            activebackground=camera_placeholder_color,
+            activeforeground=widget_background,
+            font=("Poppins", 12, "bold"),
+            command=self._save_feature_toggles,
+        )
+        hand_marker_toggle.grid(row=9, column=0, sticky="w")
         
         # Load current settings
         self._load_settings()
@@ -139,6 +197,9 @@ class SettingsView(tk.Frame):
         self.ts_var.set(self.settings.get_time_signature())
         camera_path = self.settings.get_camera_path()
         self.camera_var.set(str(camera_path) if camera_path is not None else "0")
+        self.metronome_enabled_var.set(self.settings.get_metronome_enabled())
+        self.markers_enabled_var.set(self.settings.get_markers_enabled())
+        self.conducting_hand_marker_enabled_var.set(self.settings.get_conducting_hand_marker_enabled())
     
     def _save_bpm(self) -> None:
         """Save BPM setting."""
@@ -146,6 +207,8 @@ class SettingsView(tk.Frame):
             bpm = int(self.bpm_var.get())
             if bpm > 0:
                 self.settings.set_beats_per_minute(bpm)
+                if self.ui_bridge:
+                    self.ui_bridge.update_bpm(bpm)
         except (ValueError, TypeError):
             # Reset to current setting if invalid
             self.bpm_var.set(str(self.settings.get_beats_per_minute()))
@@ -155,6 +218,8 @@ class SettingsView(tk.Frame):
         ts = self.ts_var.get().strip()
         if ts in ["4/4", "3/4"]:
             self.settings.set_time_signature(ts)
+            if self.ui_bridge:
+                self.ui_bridge.update_time_signature(ts)
         else:
             # Reset to current setting if invalid
             self.ts_var.set(self.settings.get_time_signature())
@@ -173,6 +238,21 @@ class SettingsView(tk.Frame):
             # Reset to current setting if invalid
             camera_path = self.settings.get_camera_path()
             self.camera_var.set(str(camera_path) if camera_path is not None else "0")
+
+    def _save_feature_toggles(self) -> None:
+        """Save feature toggle settings."""
+        metronome_enabled = self.metronome_enabled_var.get()
+        markers_enabled = self.markers_enabled_var.get()
+        hand_marker_enabled = self.conducting_hand_marker_enabled_var.get()
+
+        self.settings.set_metronome_enabled(metronome_enabled)
+        self.settings.set_markers_enabled(markers_enabled)
+        self.settings.set_conducting_hand_marker_enabled(hand_marker_enabled)
+
+        if self.ui_bridge:
+            self.ui_bridge.update_metronome_enabled(metronome_enabled)
+            self.ui_bridge.update_markers_enabled(markers_enabled)
+            self.ui_bridge.update_conducting_hand_marker_enabled(hand_marker_enabled)
     
     def refresh_settings(self) -> None:
         """Refresh UI with current settings (called when settings change elsewhere)."""

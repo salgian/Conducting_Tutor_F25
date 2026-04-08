@@ -116,17 +116,17 @@ class LiveView(tk.Frame):
         panel.columnconfigure(0, weight=1)
         panel.rowconfigure(9, weight=1)  # Spacer row before button
 
-        # Controls mimic settings options
-        self.dynamics_var = tk.BooleanVar(value=False)
-        self.swaying_var = tk.BooleanVar(value=False)
-        self.mirroring_var = tk.BooleanVar(value=False)
+        # Live preview controls mirror Settings source-of-truth
+        self.metronome_enabled_var = tk.BooleanVar()
+        self.markers_enabled_var = tk.BooleanVar()
+        self.conducting_hand_marker_enabled_var = tk.BooleanVar()
         self.bpm_var = tk.StringVar()
         self.ts_var = tk.StringVar()
 
         # Checkboxes
-        self._create_checkbox(panel, "Dynamics", self.dynamics_var, row=0)
-        self._create_checkbox(panel, "Swaying", self.swaying_var, row=1)
-        self._create_checkbox(panel, "Mirroring", self.mirroring_var, row=2)
+        self._create_checkbox(panel, "Metronome", self.metronome_enabled_var, row=0, on_toggle=self._on_metronome_toggle)
+        self._create_checkbox(panel, "Beat Markers", self.markers_enabled_var, row=1, on_toggle=self._on_markers_toggle)
+        self._create_checkbox(panel, "Conducting Hand Marker", self.conducting_hand_marker_enabled_var, row=2, on_toggle=self._on_hand_marker_toggle)
 
         # BPM label and entry
         bpm_label = tk.Label(panel, text="BPM", bg=camera_placeholder_color, fg=widget_background, font=("Poppins", 12, "bold"))
@@ -171,6 +171,8 @@ class LiveView(tk.Frame):
         # Footer hint under camera
         footer = tk.Label(self, text="Bring band to attention to start the program", bg=widget_background, fg=widget_font_color, font=("Poppins", 12, "bold"))
         footer.grid(row=2, column=0, columnspan=2, sticky="w", padx=12, pady=(0, 8))
+
+        self.refresh_settings()
 
         # Style tweaks for ttk controls to blend with dark theme
         try:
@@ -227,14 +229,15 @@ class LiveView(tk.Frame):
                 
                 # Mark as initialized and start updates
                 self.backend_initialized = True
-                self.camera_initialized = True
+                self.camera_initialized = False
                 self.after(0, self._start_frame_updates)
                 self.after(0, self._start_state_checking)
-                # Enable Start button now that camera is ready
-                self.after(0, lambda: self._set_start_button_enabled(True))
+                # Keep Start disabled until we receive the first real frame
+                self.after(0, lambda: self._set_start_button_enabled(False))
                 
             except Exception as e:
-                self.after(0, lambda: self._show_error(f"Error initializing: {str(e)}"))
+                error_message = f"Error initializing: {str(e)}"
+                self.after(0, lambda msg=error_message: self._show_error(msg))
         
         thread = threading.Thread(target=init_thread, daemon=True)
         thread.start()
@@ -262,14 +265,17 @@ class LiveView(tk.Frame):
                 self._set_start_button_enabled(True)
         else:
             # No frame - check if camera disconnected
-            if self.camera_initialized and self.ui_bridge.components:
-                camera_manager = self.ui_bridge.components.get('camera_manager')
-                if camera_manager and (camera_manager.cap is None or not camera_manager.cap.isOpened()):
-                    # Camera disconnected
-                    self.camera_initialized = False
-                    self._set_start_button_enabled(False)
-                    if self.camera_label:
-                        self.camera_label.configure(text="Camera disconnected", fg="#FF0000")
+            if self.ui_bridge:
+                if self.ui_bridge.components:
+                    camera_manager = self.ui_bridge.components.get('camera_manager')
+                    if camera_manager and (camera_manager.cap is None or not camera_manager.cap.isOpened()):
+                        self.camera_initialized = False
+                        self._set_start_button_enabled(False)
+                        if self.camera_label:
+                            self.camera_label.configure(text="Camera disconnected", fg="#FF0000")
+                if self.backend_initialized and not self.ui_bridge.is_processing_active():
+                    backend_error = self.ui_bridge.get_last_error() or "Backend stopped unexpectedly."
+                    self._show_error(backend_error)
         
         # Schedule next update (~30fps)
         self.frame_update_id = self.after(33, self._start_frame_updates)
@@ -377,6 +383,32 @@ class LiveView(tk.Frame):
         """Refresh settings view if it exists."""
         # This will be called from _window.py if needed
         pass
+
+    def _on_metronome_toggle(self) -> None:
+        enabled = self.metronome_enabled_var.get()
+        self.settings.set_metronome_enabled(enabled)
+        if self.ui_bridge:
+            self.ui_bridge.update_metronome_enabled(enabled)
+
+    def _on_markers_toggle(self) -> None:
+        enabled = self.markers_enabled_var.get()
+        self.settings.set_markers_enabled(enabled)
+        if self.ui_bridge:
+            self.ui_bridge.update_markers_enabled(enabled)
+
+    def _on_hand_marker_toggle(self) -> None:
+        enabled = self.conducting_hand_marker_enabled_var.get()
+        self.settings.set_conducting_hand_marker_enabled(enabled)
+        if self.ui_bridge:
+            self.ui_bridge.update_conducting_hand_marker_enabled(enabled)
+
+    def refresh_settings(self) -> None:
+        """Refresh Live controls from shared Settings source."""
+        self.metronome_enabled_var.set(self.settings.get_metronome_enabled())
+        self.markers_enabled_var.set(self.settings.get_markers_enabled())
+        self.conducting_hand_marker_enabled_var.set(self.settings.get_conducting_hand_marker_enabled())
+        self.bpm_var.set(str(self.settings.get_beats_per_minute()))
+        self.ts_var.set(self.settings.get_time_signature())
     
     def stop_backend(self) -> None:
         """Stop backend processing and cleanup."""
@@ -419,7 +451,7 @@ class LiveView(tk.Frame):
             self.start_button_frame.configure(bg=disabled_color, cursor="")
             self.start_button_frame._button_label.configure(bg=disabled_color, fg="#FFFFFF", cursor="")
 
-    def _create_checkbox(self, parent: tk.Widget, text: str, variable: tk.BooleanVar, row: int) -> None:
+    def _create_checkbox(self, parent: tk.Widget, text: str, variable: tk.BooleanVar, row: int, on_toggle: Optional[Callable[[], None]] = None) -> None:
         """Create a styled checkbox with a clickable box that turns accent pink."""
         checkbox_frame = tk.Frame(parent, bg=camera_placeholder_color)
         checkbox_frame.grid(row=row, column=0, sticky="w", pady=(0, 6))
@@ -448,6 +480,8 @@ class LiveView(tk.Frame):
         def toggle_checkbox(_e: tk.Event = None) -> None:
             variable.set(not variable.get())
             update_checkbox_appearance()
+            if callable(on_toggle):
+                on_toggle()
         
         def update_checkbox_appearance() -> None:
             checkbox_canvas.delete("checkmark")

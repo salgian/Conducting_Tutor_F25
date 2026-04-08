@@ -5,6 +5,7 @@ import cv2
 import threading
 import queue
 import numpy as np
+import traceback
 from src.core.live.mp_declaration import mediaPipeDeclaration
 from src.core.live.camera import CameraManager
 from src.core.live.system_state import SystemState
@@ -39,6 +40,7 @@ class UIBridge:
         self.processing_thread = None
         self.processing_active = False
         self.processing_lock = threading.Lock()
+        self.last_error = None
         
         # Frame queue for UI access (maxsize=2 to drop frames if UI is slow)
         self.frame_queue = queue.Queue(maxsize=2)
@@ -89,8 +91,7 @@ class UIBridge:
         beat_detection_model = BeatDetectionModel()
         bpm_tracker = BPMTracker(report_interval_seconds=5.0)
         
-        # Start continuous audio warmup in background
-        sound_manager.start_continuous_warmup()
+        # Audio warmup is disabled for stability; some systems crash in native audio backends.
         
         # Initialize detection components
         sway_detection = SwayDetection()
@@ -101,6 +102,8 @@ class UIBridge:
         # Initialize metronome and visual manager
         metronome_manager.initialize(self.settings, sound_manager, visual_manager, beat_marker_manager)
         visual_manager.set_beat_marker_manager(beat_marker_manager)
+        visual_manager.markers_enabled = self.settings.get_markers_enabled()
+        beat_marker_manager.enabled = self.settings.get_markers_enabled()
         
         # Create components dictionary
         self.components = {
@@ -140,20 +143,21 @@ class UIBridge:
         with self.processing_lock:
             if self.processing_active:
                 return True  # Already running
-            
-            # Ensure all previous threads are stopped before starting new ones
-            self._stop_all_threads()
+            self.last_error = None
             
             # Initialize camera
             camera_manager = self.components.get('camera_manager')
             if not camera_manager:
+                self.last_error = "Camera manager not initialized."
                 return False
             
             try:
                 if not camera_manager.initialize_camera():
+                    self.last_error = "Could not open camera device."
                     return False
             except Exception as e:
                 print(f"Camera initialization error: {e}")
+                self.last_error = f"Camera initialization error: {e}"
                 return False
             
             # Create system state
@@ -195,40 +199,48 @@ class UIBridge:
         last_detection_result = None
         
         while self.processing_active:
-            # Cap to 30 FPS before processing this frame.
-            camera_manager.enforce_fps_cap()
+            try:
+                # Cap to 30 FPS before processing this frame.
+                camera_manager.enforce_fps_cap()
 
-            # Process frame or reuse previous detection result
-            success, detection_result, did_calculate = self._process_frame_with_skipping(
-                camera_manager,
-                media_pipe_declaration,
-                pose,
-                visual_manager,
-                frame_counter,
-                last_detection_result
-            )
-            
-            if not success:
-                # Camera error - break loop
+                # Process frame or reuse previous detection result
+                success, detection_result, did_calculate = self._process_frame_with_skipping(
+                    camera_manager,
+                    media_pipe_declaration,
+                    pose,
+                    visual_manager,
+                    frame_counter,
+                    last_detection_result
+                )
+                
+                if not success:
+                    # Camera error - break loop
+                    self.last_error = "Failed to capture frames from camera."
+                    break
+                
+                # Cache the detection result for next frame
+                last_detection_result = detection_result
+                frame_counter += 1
+                
+                # Keep inference skipping, but run state logic every frame.
+                if detection_result:
+                    pose_landmarks.update_landmarks(detection_result)
+                
+                # Update per-frame visuals
+                visual_manager.update_frame_visuals(camera_manager, clock_manager)
+                
+                # Process state transitions every frame
+                self._process_state_transitions(system_state, metronome_manager)
+                
+                # Store frame in queue for UI access
+                self._update_frame_queue(visual_manager)
+            except Exception as exc:
+                print(f"Processing loop error: {exc}")
+                traceback.print_exc()
+                self.last_error = f"Processing loop error: {exc}"
                 break
-            
-            # Cache the detection result for next frame
-            last_detection_result = detection_result
-            frame_counter += 1
-            
-            # Keep inference skipping, but run state logic every frame.
-            if detection_result:
-                pose_landmarks.update_landmarks(detection_result)
-            
-            # Update per-frame visuals
-            visual_manager.update_frame_visuals(camera_manager, clock_manager)
-            
-            # Process state transitions every frame
-            self._process_state_transitions(system_state, metronome_manager)
-            
-            # Store frame in queue for UI access
-            self._update_frame_queue(visual_manager)
         
+        self.processing_active = False
         # Cleanup when loop exits
         self._cleanup_processing()
     
@@ -261,7 +273,7 @@ class UIBridge:
             system_state.change_state(next_state)
             self.state_change_queue.put_nowait(next_state)
             
-            if next_state == "countdown":
+            if next_state == "countdown" and metronome_manager.enabled:
                 metronome_manager.start()
     
     def _update_frame_queue(self, visual_manager):
@@ -293,7 +305,7 @@ class UIBridge:
         # Capture and prepare frame
         success, frame = camera_manager.capture_frame()
         if not success:
-            return False, None
+            return False, None, False
         
         frame = cv2.flip(frame, 1)  # Flip the frame horizontally
         
@@ -309,8 +321,13 @@ class UIBridge:
             detection_result = last_detection_result
             did_calculate = False
         
-        # Draw pose landmarks and store in visual manager
-        visual_manager.current_frame = media_pipe_declaration.draw_pose_landmarks(frame, detection_result)
+        # Draw optional conducting-hand marker and store frame in visual manager
+        show_hand_marker = self.settings.get_conducting_hand_marker_enabled()
+        visual_manager.current_frame = media_pipe_declaration.draw_pose_landmarks(
+            frame,
+            detection_result,
+            show_conducting_hand_marker=show_hand_marker
+        )
         
         return True, detection_result, did_calculate
     
@@ -465,6 +482,31 @@ class UIBridge:
         if 'visual_manager' in self.components:
             visual_manager = self.components['visual_manager']
             visual_manager.time_signature = ts
+
+    def update_metronome_enabled(self, enabled: bool):
+        """Update metronome enabled setting and propagate to backend."""
+        enabled = bool(enabled)
+        self.settings.set_metronome_enabled(enabled)
+        if 'metronome_manager' in self.components:
+            metronome_manager = self.components['metronome_manager']
+            metronome_manager.enabled = enabled
+            if not enabled:
+                metronome_manager.stop()
+
+    def update_markers_enabled(self, enabled: bool):
+        """Update beat markers enabled setting and propagate to backend."""
+        enabled = bool(enabled)
+        self.settings.set_markers_enabled(enabled)
+        if 'beat_marker_manager' in self.components:
+            beat_marker_manager = self.components['beat_marker_manager']
+            beat_marker_manager.enabled = enabled
+        if 'visual_manager' in self.components:
+            visual_manager = self.components['visual_manager']
+            visual_manager.markers_enabled = enabled
+
+    def update_conducting_hand_marker_enabled(self, enabled: bool):
+        """Update conducting hand marker enabled setting."""
+        self.settings.set_conducting_hand_marker_enabled(bool(enabled))
     
     def check_state_changes(self) -> str | None:
         """Check for state changes (polled by UI).
@@ -475,4 +517,12 @@ class UIBridge:
         if not self.state_change_queue.empty():
             return self.state_change_queue.get_nowait()
         return None
+
+    def get_last_error(self) -> str | None:
+        """Return the most recent backend error, if any."""
+        return self.last_error
+
+    def is_processing_active(self) -> bool:
+        """Return whether the processing loop is currently active."""
+        return self.processing_active
 

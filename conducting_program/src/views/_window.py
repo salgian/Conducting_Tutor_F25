@@ -26,6 +26,7 @@ class MainWindow:
         self.ui_bridge = UIBridge(self.settings)  # Create UI bridge
         self._configure_root()
         self._build_layout()
+        self._ending_transition_scheduled = False
         # Pre-initialize MediaPipe in background to avoid freeze
         self._preinitialize_backend()
         self.show_home()
@@ -111,6 +112,8 @@ class MainWindow:
                 on_state_change=self._on_state_change,
             )
             self.live_frame.grid(row=0, column=0, sticky="nsew")
+        else:
+            self.live_frame.refresh_settings()
         
         self.live_frame.initialize_backend()
         self.show_live()
@@ -120,6 +123,9 @@ class MainWindow:
         if new_state == "countdown":
             # Automatically transition to active view
             self.on_start()
+        elif new_state == "ending":
+            # Show ending visuals briefly, then navigate to ending/stats screen.
+            self._schedule_ending_transition(delay_ms=1000)
 
     def on_video(self) -> None:
         """Navigate to video view (not implemented)."""
@@ -245,7 +251,7 @@ class MainWindow:
         self._push_nav_history(self.current_view)
 
         if self.settings_frame is None:
-            self.settings_frame = SettingsView(self.container, on_back=self._go_back)
+            self.settings_frame = SettingsView(self.container, on_back=self._go_back, ui_bridge=self.ui_bridge)
             self.settings_frame.grid(row=0, column=0, sticky="nsew")
         else:
             # Refresh settings view with current values
@@ -332,7 +338,7 @@ class MainWindow:
                     # Force transition to countdown
                     system_state.change_state("countdown")
                     metronome_manager = self.ui_bridge.components.get('metronome_manager')
-                    if metronome_manager:
+                    if metronome_manager and metronome_manager.enabled:
                         metronome_manager.start()
 
     def show_active(self) -> None:
@@ -357,13 +363,22 @@ class MainWindow:
     def on_end_active(self) -> None:
         """Handle end button click in active view - transition to ending state, then navigate to stats."""
         self.ui_bridge.request_ending_state()
+        self._schedule_ending_transition(delay_ms=300)
+
+    def _schedule_ending_transition(self, delay_ms: int) -> None:
+        """Schedule one ending transition flow from either UI click or gesture state change."""
+        if self._ending_transition_scheduled:
+            return
+        self._ending_transition_scheduled = True
         self._stop_view_updates()
-        self.root.after(300, self._stop_backend_and_navigate)
+        self.root.after(delay_ms, self._stop_backend_and_navigate)
     
     def _stop_view_updates(self) -> None:
         """Stop frame and metrics updates in active and live views."""
-        self.active_frame.stop_metrics_updates()
-        self.live_frame.stop_backend()
+        if self.active_frame:
+            self.active_frame.stop_metrics_updates()
+        if self.live_frame:
+            self.live_frame.stop_backend()
     
     def _stop_backend_and_navigate(self) -> None:
         """Stop backend processing and navigate to stats view."""
@@ -372,6 +387,7 @@ class MainWindow:
     
     def _navigate_to_stats(self) -> None:
         """Navigate to stats view."""
+        self._ending_transition_scheduled = False
         self._push_nav_history("active")
         if self.stats_frame is None:
             self.stats_frame = LiveStatsView(

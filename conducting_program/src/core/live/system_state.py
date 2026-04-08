@@ -176,6 +176,7 @@ class CountdownState:
         self.state_name = State.COUNTDOWN.value
         self.components = components
         self.first_frame = True
+        self.silent_countdown_start_time = None
         print("=== COUNTDOWN PHASE ===")
     
     def get_state_name(self):
@@ -184,11 +185,23 @@ class CountdownState:
     def main(self):
         metronome_manager = self.components['metronome_manager']  # MetronomeManager (has the thread)
         visual_manager = self.components['visual_manager']
+        clock_manager = self.components['clock_manager']
         
         if not self.first_frame:
             # Normal countdown processing (2 measures: 0 and 1)
-            if metronome_manager.get_measure_count() >= 2:
-                return "processing"
+            if metronome_manager.enabled:
+                if metronome_manager.get_measure_count() >= 2:
+                    return "processing"
+            else:
+                # Silent countdown: advance beats by elapsed time without audio thread.
+                if self.silent_countdown_start_time is None:
+                    self.silent_countdown_start_time = clock_manager.get_current_timestamp()
+                elapsed = max(0.0, clock_manager.get_current_timestamp() - self.silent_countdown_start_time)
+                total_beats = int(elapsed / metronome_manager.beat_interval)
+                metronome_manager.measure_count = total_beats // metronome_manager.beats_per_measure
+                metronome_manager.current_beat = total_beats % metronome_manager.beats_per_measure
+                if metronome_manager.get_measure_count() >= 2:
+                    return "processing"
             
             # Display countdown visuals
             visual_manager.display_countdown_visuals(metronome_manager)
@@ -199,9 +212,13 @@ class CountdownState:
             # Stop continuous audio warmup - no longer needed once metronome starts playing
             sound_manager = self.components['sound_manager']
             sound_manager.stop_continuous_warmup()
+            metronome_manager.reset_count()
             
             # Start metronome (which will play sounds regularly, making warmup unnecessary)
-            metronome_manager.start()
+            if metronome_manager.enabled:
+                metronome_manager.start()
+            else:
+                self.silent_countdown_start_time = clock_manager.get_current_timestamp()
             self.first_frame = False
             visual_manager.display_countdown_visuals(metronome_manager)
             return "countdown"
@@ -212,6 +229,17 @@ class ProcessingState:
         self.components = components
         self.first_frame = True
         self.midpoint_initialized = False
+        self.cutoff_tracking = False
+        self.cutoff_start_time = None
+        self.previous_left_hand = None
+        self.previous_right_hand = None
+        self.cutoff_hold_duration = 2.0
+        self.cutoff_settle_duration = 1.0
+        self.cutoff_still_threshold = 0.03
+        self.crossing_hysteresis = 0.02
+        self.uncross_margin = 0.005
+        self.cutoff_stage = "idle"  # idle -> crossed -> uncrossed_settle -> holding
+        self.cutoff_last_progress_bucket = -1
 
         # Reset beat and measure count to start from 1
         components['metronome_manager'].reset_count()
@@ -242,6 +270,10 @@ class ProcessingState:
         bpm_tracker = self.components['bpm_tracker']
         
         if not self.first_frame:
+            # Check for cutoff gesture (wrists crossed + held still).
+            if self._check_cutoff_gesture(pose_landmarks, clock_manager):
+                return "ending"
+
             # Normal processing logic
             # Update midpoint and run detection components
             midpoint_processor.update_current_midpoint(pose_landmarks)
@@ -252,7 +284,8 @@ class ProcessingState:
                 mirror_detection.main(pose_landmarks, clock_manager, midpoint_processor.get_live_midpoint())
             
             elbow_detection.main(pose_landmarks)
-            beat_marker_manager.main(pose_landmarks, metronome_manager, visual_manager)
+            if beat_marker_manager.enabled:
+                beat_marker_manager.main(pose_landmarks, metronome_manager, visual_manager)
             
             # --- ML Beat Detection ---
             right_wrist = pose_landmarks.get_pose_landmark_15()
@@ -287,6 +320,99 @@ class ProcessingState:
         # Pre-display the first processing beat to avoid missing it
         visual_manager.display_processing_visuals()
         return "processing"
+
+    def _check_cutoff_gesture(self, pose_landmarks, clock_manager):
+        """Detect cutoff gesture sequence: cross -> uncross -> settle -> hold still."""
+        left_hand = pose_landmarks.get_pose_landmark_16()   # Left wrist
+        right_hand = pose_landmarks.get_pose_landmark_15()  # Right wrist
+
+        if not left_hand or not right_hand:
+            self._reset_cutoff_tracking()
+            self.previous_left_hand = None
+            self.previous_right_hand = None
+            return False
+
+        left_x, left_y = left_hand
+        right_x, right_y = right_hand
+        if None in (left_x, left_y, right_x, right_y):
+            self._reset_cutoff_tracking()
+            self.previous_left_hand = None
+            self.previous_right_hand = None
+            return False
+
+        if self.previous_left_hand is None or self.previous_right_hand is None:
+            self.previous_left_hand = (left_x, left_y)
+            self.previous_right_hand = (right_x, right_y)
+            return False
+
+        prev_left_x, prev_left_y = self.previous_left_hand
+        prev_right_x, prev_right_y = self.previous_right_hand
+        movement = max(
+            abs(left_x - prev_left_x),
+            abs(left_y - prev_left_y),
+            abs(right_x - prev_right_x),
+            abs(right_y - prev_right_y),
+        )
+        hands_still = movement <= self.cutoff_still_threshold
+        hands_crossed = left_x > (right_x + self.crossing_hysteresis)
+        # "Uncrossed" should be easier to hit than fully crossing the other way.
+        hands_uncrossed = left_x <= (right_x + self.uncross_margin)
+
+        now = clock_manager.get_current_timestamp()
+
+        if self.cutoff_stage == "idle":
+            if hands_crossed:
+                self.cutoff_stage = "crossed"
+                print("[Cutoff] Stage: crossed")
+        elif self.cutoff_stage == "crossed":
+            if hands_uncrossed:
+                self.cutoff_stage = "uncrossed_settle"
+                self.cutoff_start_time = now
+                self.cutoff_last_progress_bucket = -1
+                print("[Cutoff] Stage: uncrossed_settle (waiting 1.0s)")
+            elif not hands_crossed:
+                # Between crossed and uncrossed thresholds; wait instead of resetting.
+                pass
+        elif self.cutoff_stage == "uncrossed_settle":
+            if hands_crossed:
+                self._reset_cutoff_tracking()
+                print("[Cutoff] Reset: re-crossed during settle")
+            elif now - self.cutoff_start_time >= self.cutoff_settle_duration:
+                self.cutoff_stage = "holding"
+                self.cutoff_tracking = True
+                self.cutoff_start_time = now
+                self.cutoff_last_progress_bucket = -1
+                print("[Cutoff] Stage: holding (stay still 2.0s)")
+        elif self.cutoff_stage == "holding":
+            if hands_crossed:
+                self._reset_cutoff_tracking()
+                print("[Cutoff] Reset: re-crossed during hold")
+            elif not hands_still:
+                # Exit sequence on movement; require a fresh cross to start again.
+                self._reset_cutoff_tracking()
+                print("[Cutoff] Hold reset: movement detected (restart from cross)")
+            elif now - self.cutoff_start_time >= self.cutoff_hold_duration:
+                self._reset_cutoff_tracking()
+                self.previous_left_hand = (left_x, left_y)
+                self.previous_right_hand = (right_x, right_y)
+                print("[Cutoff] Recognized -> ending")
+                return True
+            else:
+                hold_elapsed = now - self.cutoff_start_time
+                progress_bucket = int(hold_elapsed * 2)  # every 0.5s
+                if progress_bucket != self.cutoff_last_progress_bucket:
+                    self.cutoff_last_progress_bucket = progress_bucket
+                    print(f"[Cutoff] Holding... {hold_elapsed:.1f}s / {self.cutoff_hold_duration:.1f}s")
+
+        self.previous_left_hand = (left_x, left_y)
+        self.previous_right_hand = (right_x, right_y)
+        return False
+
+    def _reset_cutoff_tracking(self):
+        self.cutoff_tracking = False
+        self.cutoff_start_time = None
+        self.cutoff_stage = "idle"
+        self.cutoff_last_progress_bucket = -1
 
 class EndingState:
     def __init__(self, components):

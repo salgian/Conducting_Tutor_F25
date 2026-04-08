@@ -4,6 +4,9 @@ import time
 from pydub import AudioSegment
 from pydub.playback import play
 
+if os.name == "nt":
+    import winsound
+
 class SoundManager:
     """
     Manages sound playback for the conducting tutor.
@@ -13,6 +16,7 @@ class SoundManager:
     def __init__(self):
         """Initialize the sound manager."""
         self.metronome_sound = None
+        self.metronome_sound_path = None
         self.warmup_running = False
         self.warmup_thread = None
         self.audio_lock = threading.Lock()  # Prevent simultaneous audio playback
@@ -22,6 +26,7 @@ class SoundManager:
         """Load the metronome sound file (WAV format)."""
         # Get path relative to this file: go up 3 levels to project root, then to assets/sounds
         sound_file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "assets", "sounds", "metro_sound.wav"))
+        self.metronome_sound_path = sound_file_path
         
         # Load WAV file directly
         if os.path.exists(sound_file_path):
@@ -33,16 +38,31 @@ class SoundManager:
 
     def play_metronome_sound(self):
         """Play a single metronome beat (non-blocking)."""
-        if self.metronome_sound is not None:
-            threading.Thread(target=self._play_sound_non_blocking, args=(self.metronome_sound,), daemon=True).start()
-        else:
+        if self.metronome_sound is None:
             print("Metronome sound not loaded, cannot play.")
+            return
+
+        # On Windows, use winsound for stability and async playback.
+        if os.name == "nt":
+            try:
+                winsound.PlaySound(
+                    self.metronome_sound_path,
+                    winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT
+                )
+            except Exception as exc:
+                print(f"Metronome playback error (winsound): {exc}")
+            return
+
+        threading.Thread(target=self._play_sound_non_blocking, args=(self.metronome_sound,), daemon=True).start()
     
     def _play_sound_non_blocking(self, sound):
         """Helper to play sound in a separate thread with lock to prevent conflicts."""
         if sound:
             with self.audio_lock:
-                play(sound)
+                try:
+                    play(sound)
+                except Exception as exc:
+                    print(f"Metronome playback error (pydub): {exc}")
     
     def warmup_audio_system(self):
         """Pre-initialize the audio system to prevent first-play delays."""

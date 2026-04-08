@@ -24,6 +24,7 @@ class BeatMarkerManager:
         self.visual_lock = threading.Lock()
         self.visual_duration = 0.4  # Duration to show visual (in seconds)
         self.visual_start_time = None
+        self.enabled = True
         
     # -------------------- Position Management --------------------
     
@@ -53,6 +54,8 @@ class BeatMarkerManager:
             metronome_manager: MetronomeManager for current beat info
             visual_manager: VisualManager for displaying results
         """
+        if not self.enabled:
+            return
         # Run detection logic
         current_beat = metronome_manager.get_current_beat()
         self.check_hand_hit(pose_landmarks, current_beat, visual_manager)
@@ -148,6 +151,8 @@ class BeatMarkerManager:
         Args:
             beat_time: Timestamp when the beat was triggered
         """
+        if not self.enabled:
+            return
         with self.visual_lock:
             self.show_visual = True
             self.visual_start_time = beat_time
@@ -158,6 +163,8 @@ class BeatMarkerManager:
         Returns:
             bool: True if visual should be displayed, False otherwise
         """
+        if not self.enabled:
+            return False
         with self.visual_lock:
             if self.show_visual and self.visual_start_time is not None:
                 # Check if visual duration has expired

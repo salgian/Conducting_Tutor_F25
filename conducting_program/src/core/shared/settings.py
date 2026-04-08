@@ -21,6 +21,11 @@ class Settings:
         self.beats_per_minute = 60  # Default BPM
         self.time_signature = "4/4"  # Default time signature
         self.camera_path = 0  # Default camera index
+        self.feature_toggles = {
+            "metronome_enabled": True,
+            "markers_enabled": True,
+            "conducting_hand_marker_enabled": True,
+        }
 
     def set_time_signature(self, time_sig: str):
         match time_sig:
@@ -49,4 +54,31 @@ class Settings:
     def get_camera_path(self):
         """Get camera path."""
         return self.camera_path
+
+    def set_feature_toggle(self, toggle_name: str, enabled: bool):
+        """Set a feature toggle by name."""
+        if toggle_name in self.feature_toggles:
+            self.feature_toggles[toggle_name] = bool(enabled)
+
+    def get_feature_toggle(self, toggle_name: str) -> bool:
+        """Get a feature toggle by name."""
+        return bool(self.feature_toggles.get(toggle_name, False))
+
+    def set_metronome_enabled(self, enabled: bool):
+        self.set_feature_toggle("metronome_enabled", enabled)
+
+    def get_metronome_enabled(self) -> bool:
+        return self.get_feature_toggle("metronome_enabled")
+
+    def set_markers_enabled(self, enabled: bool):
+        self.set_feature_toggle("markers_enabled", enabled)
+
+    def get_markers_enabled(self) -> bool:
+        return self.get_feature_toggle("markers_enabled")
+
+    def set_conducting_hand_marker_enabled(self, enabled: bool):
+        self.set_feature_toggle("conducting_hand_marker_enabled", enabled)
+
+    def get_conducting_hand_marker_enabled(self) -> bool:
+        return self.get_feature_toggle("conducting_hand_marker_enabled")
 

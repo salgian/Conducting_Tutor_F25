@@ -28,6 +28,7 @@ class VisualManager:
         self.bpm_visual = None
         self.beat_text_duration = 0.4
         self.beat_text_until = 0.0
+        self.markers_enabled = True
     
     def set_beat_marker_manager(self, beat_marker_manager):
         """Set the beat marker manager for position data and hit detection."""
@@ -180,12 +181,14 @@ class VisualManager:
     def display_setup_visuals(self):
         """Orchestrate setup state visuals."""
         self.state_visual.draw_setup_label(self.current_frame)
-        self.beat_visual.draw_beat_circles(self.current_frame, current_beat=1, mode='setup')
+        if self.markers_enabled:
+            self.beat_visual.draw_beat_circles(self.current_frame, current_beat=1, mode='setup')
     
     def display_countdown_visuals(self, metronome_manager):
         """Orchestrate countdown state visuals."""
         self.state_visual.draw_countdown_label(self.current_frame)
-        self.beat_visual.draw_beat_circles(self.current_frame, metronome_manager.get_current_beat(), mode='countdown')
+        if self.markers_enabled:
+            self.beat_visual.draw_beat_circles(self.current_frame, metronome_manager.get_current_beat(), mode='countdown')
     
     def display_processing_visuals(self):
         """Orchestrate processing state visuals."""
@@ -210,12 +213,13 @@ class VisualManager:
             metronome_manager.get_measure_count()
         )
         
-        # Next beat preview (semi-transparent) - always visible, doesn't flash
-        self.beat_visual.draw_next_beat_preview(self.current_frame, metronome_manager.get_current_beat())
-        
-        # Current beat (solid red) - only shown when flashing
-        if beat_marker_manager.get_show_visual():
-            self.beat_visual.draw_beat_circles(self.current_frame, metronome_manager.get_current_beat(), mode='processing')
+        if self.markers_enabled:
+            # Next beat preview (semi-transparent) - always visible, doesn't flash
+            self.beat_visual.draw_next_beat_preview(self.current_frame, metronome_manager.get_current_beat())
+            
+            # Current beat (solid red) - only shown when flashing
+            if beat_marker_manager.get_show_visual():
+                self.beat_visual.draw_beat_circles(self.current_frame, metronome_manager.get_current_beat(), mode='processing')
             
         # Draw BPM overlay if active
         if self.bpm_visual:

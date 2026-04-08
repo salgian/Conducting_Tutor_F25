@@ -17,9 +17,8 @@ class PoseLandmarks:
         self.left_hip_24 = (None, None)
 
     def update_landmarks(self, detection_result):
-        if detection_result and detection_result.pose_landmarks:
-            landmarks = detection_result.pose_landmarks.landmark
-            if len(landmarks) > 16:
+        landmarks = self._extract_landmarks(detection_result)
+        if landmarks and len(landmarks) > 16:
                 # Hands
                 self.right_wrist_15 = (landmarks[15].x, landmarks[15].y)
                 self.left_wrist_16 = (landmarks[16].x, landmarks[16].y)
@@ -42,6 +41,18 @@ class PoseLandmarks:
             self.left_elbow_14 = (None, None)
             self.right_hip_23 = (None, None)
             self.left_hip_24 = (None, None)
+
+    @staticmethod
+    def _extract_landmarks(detection_result):
+        """Support both mediapipe.solutions and mediapipe.tasks result shapes."""
+        if not detection_result or not hasattr(detection_result, "pose_landmarks"):
+            return None
+        pose_landmarks = detection_result.pose_landmarks
+        if hasattr(pose_landmarks, "landmark"):
+            return pose_landmarks.landmark
+        if isinstance(pose_landmarks, list) and pose_landmarks:
+            return pose_landmarks[0]
+        return None
 
     def get_pose_landmark_15(self):
         return self.right_wrist_15

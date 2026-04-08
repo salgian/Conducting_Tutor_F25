@@ -99,8 +99,8 @@ class MirrorDetection:
                     self.before_starting = None
                     self.before_ending = None
                 else:
-                    # Still in end buffer - keep printing
-                    print("Mirroring")
+                    # Still in end buffer - keep mirroring flag until timeout.
+                    pass
             else:
                 # Not mirroring and not flagged - reset start buffer
                 self.before_starting = None

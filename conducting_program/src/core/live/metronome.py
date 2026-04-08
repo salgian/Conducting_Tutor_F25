@@ -26,6 +26,7 @@ class MetronomeManager:
         self.sound_manager = None
         self.visual_manager = None
         self.beat_marker_manager = None  # BeatMarkerManager for visual coordination
+        self.enabled = True
         
     # -------------------- Initialization --------------------
     
@@ -38,12 +39,15 @@ class MetronomeManager:
         self.beat_marker_manager = beat_marker_manager
         self.beat_interval = 60 / self.bpm
         self.beats_per_measure = int(self.time_signature.split('/')[0])
+        self.enabled = settings.get_metronome_enabled()
         print(f"MetronomeManager initialized: {self.bpm} BPM, {self.time_signature} time signature")
     
     # -------------------- Thread Management --------------------
     
     def start(self):
         """Start the independent beat timing thread."""
+        if not self.enabled:
+            return
         if not self.is_running:
             self.is_running = True
             self.bpm_thread = threading.Thread(target=self._beat_worker, daemon=True)
@@ -77,11 +81,12 @@ class MetronomeManager:
         
     def _trigger_beat(self, beat_time):
         """Trigger beat: spawn daemon threads for sound and coordinate visual display."""
+        if not self.enabled:
+            return
         self._increment_beat()
 
-        # Play sound and show visual for all beats (audio already warmed up during setup)
-        # Spawn daemon thread for sound (non-blocking)
-        threading.Thread(target=self.sound_manager.play_metronome_sound, daemon=True).start()
+        # Play sound and show visual for all beats.
+        self.sound_manager.play_metronome_sound()
 
         # Trigger visual display via BeatMarkerManager (visual timing managed there)
         if self.beat_marker_manager:
