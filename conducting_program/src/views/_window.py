@@ -27,6 +27,9 @@ class MainWindow:
         self._configure_root()
         self._build_layout()
         self._ending_transition_scheduled = False
+        self._ending_transition_after_id = None
+        self._camera_check_after_id = None
+        self._live_session_token = 0
         # Pre-initialize MediaPipe in background to avoid freeze
         self._preinitialize_backend()
         self.show_home()
@@ -101,6 +104,7 @@ class MainWindow:
 
     def on_live(self) -> None:
         self._push_nav_history("home")
+        self._live_session_token += 1
         if self.live_frame is None:
             self.live_frame = LiveView(
                 self.container,
@@ -290,6 +294,8 @@ class MainWindow:
     
     def _wait_for_camera_then_show_active(self) -> None:
         """Wait for camera to be ready, then show active view."""
+        session_token = self._live_session_token
+
         if not self.ui_bridge or not self.ui_bridge.components:
             # Backend not initialized, show active view anyway
             self._show_active_view()
@@ -303,13 +309,18 @@ class MainWindow:
         
         # Check if camera can capture a frame
         def check_camera():
+            if session_token != self._live_session_token or self.current_view != "live":
+                self._camera_check_after_id = None
+                return
+
             success, frame = camera_manager.capture_frame()
             if success and frame is not None:
                 # Camera is ready, show active view
+                self._camera_check_after_id = None
                 self.root.after(0, self._show_active_view)
             else:
                 # Try again in 100ms
-                self.root.after(100, check_camera)
+                self._camera_check_after_id = self.root.after(100, check_camera)
         
         # Start checking
         check_camera()
@@ -371,7 +382,7 @@ class MainWindow:
             return
         self._ending_transition_scheduled = True
         self._stop_view_updates()
-        self.root.after(delay_ms, self._stop_backend_and_navigate)
+        self._ending_transition_after_id = self.root.after(delay_ms, self._stop_backend_and_navigate)
     
     def _stop_view_updates(self) -> None:
         """Stop frame and metrics updates in active and live views."""
@@ -382,6 +393,7 @@ class MainWindow:
     
     def _stop_backend_and_navigate(self) -> None:
         """Stop backend processing and navigate to stats view."""
+        self._ending_transition_after_id = None
         self.ui_bridge.stop_processing()
         self._navigate_to_stats()
     
@@ -415,6 +427,15 @@ class MainWindow:
         self.current_view = "stats"
 
     def show_home(self) -> None:
+        self._live_session_token += 1
+        self._ending_transition_scheduled = False
+        if self._ending_transition_after_id is not None:
+            self.root.after_cancel(self._ending_transition_after_id)
+            self._ending_transition_after_id = None
+        if self._camera_check_after_id is not None:
+            self.root.after_cancel(self._camera_check_after_id)
+            self._camera_check_after_id = None
+
         if self.home_frame is None:
             self.home_frame = HomeView(self.container, on_settings=self.on_settings, on_live=self.on_live, on_video=self.on_video)
             self.home_frame.grid(row=0, column=0, sticky="nsew")

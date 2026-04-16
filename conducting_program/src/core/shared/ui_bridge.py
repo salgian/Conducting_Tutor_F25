@@ -54,6 +54,24 @@ class UIBridge:
         
         # MediaPipe initialization flag (can be pre-initialized)
         self._mediapipe_initialized = False
+
+    @staticmethod
+    def _drain_queue(target_queue):
+        """Remove all pending items from a queue without blocking."""
+        while not target_queue.empty():
+            try:
+                target_queue.get_nowait()
+            except queue.Empty:
+                break
+
+    def _reset_session_state(self):
+        """Clear all session-scoped state before reuse."""
+        self._drain_queue(self.frame_queue)
+        self._drain_queue(self.state_change_queue)
+        self._drain_queue(self.state_request_queue)
+        self.current_frame = None
+        self.last_error = None
+        self.processing_thread = None
     
     def initialize_backend(self) -> bool:
         """Initialize all backend components.
@@ -66,6 +84,8 @@ class UIBridge:
         # Clean up existing components if reinitializing
         if self.components:
             self._cleanup_components()
+
+        self._reset_session_state()
         
         # Initialize MediaPipe pose detection (reuse if pre-initialized)
         if not self._mediapipe_initialized:
@@ -334,27 +354,27 @@ class UIBridge:
     def _cleanup_components(self):
         """Clean up all component resources and stop all threads."""
         if not self.components:
+            self._reset_session_state()
             return
-        
+
         self._stop_all_threads()
-        
+
         camera_manager = self.components.get('camera_manager')
         media_pipe_declaration = self.components.get('media_pipe_declaration')
         pose = self.components.get('pose')
-        
+
         if camera_manager:
             camera_manager.cleanup()
         if media_pipe_declaration and pose:
             media_pipe_declaration.close_pose_detection(pose)
-        
+
         self.components = {}
+        self._reset_session_state()
     
     def _cleanup_processing(self):
         """Clean up processing resources after threads are stopped."""
         if not self.components:
-            while not self.frame_queue.empty():
-                self.frame_queue.get_nowait()
-            self.current_frame = None
+            self._reset_session_state()
             return
         
         camera_manager = self.components.get('camera_manager')
@@ -365,11 +385,8 @@ class UIBridge:
             camera_manager.cleanup()
         if media_pipe_declaration and pose:
             media_pipe_declaration.close_pose_detection(pose)
-        
-        while not self.frame_queue.empty():
-            self.frame_queue.get_nowait()
-        
-        self.current_frame = None
+
+        self._reset_session_state()
     
     def request_ending_state(self):
         """Request transition to ending state."""
@@ -386,6 +403,7 @@ class UIBridge:
         """
         with self.processing_lock:
             if not self.processing_active:
+                self._reset_session_state()
                 return
             
             self.processing_active = False
@@ -396,7 +414,7 @@ class UIBridge:
             # Wait for processing thread to finish
             if self.processing_thread and self.processing_thread.is_alive():
                 self.processing_thread.join(timeout=3.0)
-            
+
             self._cleanup_processing()
     
     def _stop_all_threads(self):

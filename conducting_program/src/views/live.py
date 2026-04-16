@@ -43,6 +43,7 @@ class LiveView(tk.Frame):
         self.backend_initialized = False
         self.start_button_frame = None  # Store reference to Start button for enabling/disabling
         self.camera_initialized = False  # Track camera initialization status
+        self._backend_run_id = 0
 
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=0)
@@ -186,7 +187,10 @@ class LiveView(tk.Frame):
         """Initialize backend asynchronously when view is shown to avoid UI freeze."""
         if self.backend_initialized or self.ui_bridge is None:
             return self.backend_initialized
-        
+
+        self._backend_run_id += 1
+        run_id = self._backend_run_id
+
         # Show loading message
         if self.camera_label:
             self.camera_label.configure(text="Initializing camera...", fg=widget_background)
@@ -195,6 +199,9 @@ class LiveView(tk.Frame):
         import threading
         def init_thread():
             try:
+                if run_id != self._backend_run_id:
+                    return
+
                 # Get current settings from UI
                 try:
                     bpm = int(self.bpm_var.get()) if self.bpm_var.get() and self.bpm_var.get() != "Enter BPM" else self.settings.get_beats_per_minute()
@@ -215,7 +222,8 @@ class LiveView(tk.Frame):
                 
                 # Initialize backend
                 if not self.ui_bridge.initialize_backend():
-                    self.after(0, lambda: self._show_error("Failed to initialize backend components"))
+                    if run_id == self._backend_run_id:
+                        self.after(0, lambda: self._show_error("Failed to initialize backend components"))
                     return
                 
                 # Start processing loop
@@ -223,10 +231,15 @@ class LiveView(tk.Frame):
                     camera_callback=None,
                     state_change_callback=self._on_state_change
                 ):
-                    self.after(0, lambda: self._show_error("Failed to start camera. Please check camera connection."))
-                    self.camera_initialized = False
+                    if run_id == self._backend_run_id:
+                        self.after(0, lambda: self._show_error("Failed to start camera. Please check camera connection."))
+                        self.camera_initialized = False
                     return
-                
+
+                if run_id != self._backend_run_id:
+                    self.ui_bridge.stop_processing()
+                    return
+
                 # Mark as initialized and start updates
                 self.backend_initialized = True
                 self.camera_initialized = False
@@ -237,7 +250,8 @@ class LiveView(tk.Frame):
                 
             except Exception as e:
                 error_message = f"Error initializing: {str(e)}"
-                self.after(0, lambda msg=error_message: self._show_error(msg))
+                if run_id == self._backend_run_id:
+                    self.after(0, lambda msg=error_message: self._show_error(msg))
         
         thread = threading.Thread(target=init_thread, daemon=True)
         thread.start()
@@ -253,7 +267,7 @@ class LiveView(tk.Frame):
     
     def _start_frame_updates(self) -> None:
         """Start periodic frame updates from backend."""
-        if self.ui_bridge is None:
+        if self.ui_bridge is None or not self.backend_initialized:
             return
         
         frame = self.ui_bridge.get_current_frame()
@@ -282,7 +296,7 @@ class LiveView(tk.Frame):
     
     def _start_state_checking(self) -> None:
         """Check for state changes from backend."""
-        if self.ui_bridge is None:
+        if self.ui_bridge is None or not self.backend_initialized:
             return
         
         new_state = self.ui_bridge.check_state_changes()
@@ -412,6 +426,7 @@ class LiveView(tk.Frame):
     
     def stop_backend(self) -> None:
         """Stop backend processing and cleanup."""
+        self._backend_run_id += 1
         if self.frame_update_id:
             self.after_cancel(self.frame_update_id)
             self.frame_update_id = None
