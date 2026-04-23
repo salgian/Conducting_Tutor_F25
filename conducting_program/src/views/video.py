@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import filedialog
 import tkinter.ttk as ttk
 from typing import Callable, Optional
 import cv2
@@ -160,11 +161,11 @@ class VideoView(tk.Frame):
         self.ts_dropdown.bind("<<ComboboxSelected>>", lambda _e: self._on_ts_change())
 
         # Buttons
-        self._create_styled_button(panel, "Edit Path", lambda: self._fire(self._on_edit_path), row=7)
+        self._create_styled_button(panel, "Edit Path", lambda: self._fire(self._on_start), row=7)
         self._create_styled_button(panel, "Settings", lambda: self._fire(self._on_open_settings), row=8)
         
         # Start button at the bottom (store reference for enabling/disabling)
-        self._create_styled_button(panel, "Start", lambda: self._fire(self._on_start), row=9)
+        self._create_styled_button(panel, "Start", lambda: self.get_file(self), row=9)
         # Initially disable until camera is ready
 
         # Footer hint under camera
@@ -537,12 +538,35 @@ class VideoView(tk.Frame):
             return button_frame
 
     @staticmethod
-    def _fire(cb: Optional[Callable], *args) -> None:
+    def _fire(cb: Optional[Callable], *args, ) -> None:
         if callable(cb):
             try:
                 cb(*args)
             except Exception:
                 pass
+    
+    @staticmethod
+    def get_file(self):
+        file = filedialog.askopenfilename(title = "Select a File")
+        if file:
+            self.ui_bridge.update_camera_path(file)
+            """
+                cap = cv2.VideoCapture(file)
+                while cap.isOpened():
+                    ret, frame = cap.read()
+            
+                    if not ret:
+                        break
+    
+                    self._update_camera_display(frame)
+
+                    if cv2.waitKey(1) == ord('q'):
+                        break
+        
+                cap.release
+                cv2.destroyAllWindows
+        """
+
 
 
 def main() -> None:

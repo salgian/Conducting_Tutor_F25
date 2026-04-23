@@ -11,12 +11,19 @@ class CameraManager:
         self.target_fps = 30
         self.target_frame_duration = 1.0 / self.target_fps
         self.next_frame_deadline = 0.0
-        
+
+    def set_camera_index(self, camera_index):
+        self.camera_index = camera_index
+        self.initialize_camera()
+    
+    def get_camera_index(self):
+        return self.camera_index
+    
     def initialize_camera(self):
         """Initialize camera with best available resolution."""
         # Initialize with DirectShow backend for better control
+        print("test1")
         self.cap = cv2.VideoCapture(self.camera_index, cv2.CAP_DSHOW)
-        
         if not self.cap.isOpened():
             # Fallback to default backend
             self.cap = cv2.VideoCapture(self.camera_index)

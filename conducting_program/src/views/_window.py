@@ -147,7 +147,7 @@ class MainWindow:
         self.video_frame.grid(row=0, column=0, sticky="nsew")
         
 
-        #self.video_frame.initialize_backend()
+        self.video_frame.initialize_backend()
         self.show_video()
         pass
         
@@ -446,6 +446,7 @@ class MainWindow:
             self.live_frame.stop_backend()
         if self.video_frame:
             self.video_frame.stop_backend()
+            self.ui_bridge.update_camera_path(0)
         
         if self.ui_bridge:
             self.ui_bridge.stop_processing()

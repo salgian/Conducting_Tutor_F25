@@ -467,6 +467,18 @@ class UIBridge:
         """
         return self.settings.get_time_signature()
     
+    def get_camera_path(self) -> str:
+        return self.settings.get_camera_path()
+
+    def update_camera_path(self, camera):
+        if 'camera_manager' in self.components:
+            camera_manager = self.components['camera_manager']
+            camera_manager.set_camera_index(camera)
+            self.settings.set_camera_path(camera)
+
+        
+
+
     def update_bpm(self, bpm: int):
         """Update BPM setting and propagate to backend.
         
