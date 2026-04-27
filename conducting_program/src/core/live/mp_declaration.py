@@ -2,6 +2,7 @@ import mediapipe as mp
 import numpy as np
 import cv2
 import os
+import sys
 
 class mediaPipeDeclaration:
 
@@ -13,9 +14,32 @@ class mediaPipeDeclaration:
     _smoothing_alpha = 0.35 # smoothing factor for the wrist landmark
 
     @staticmethod
+    def _resolve_task_model_path() -> str:
+        """Resolve task model path for source and bundled execution."""
+        source_path = os.path.join(os.path.dirname(__file__), "pose_landmarks", "pose_landmarker_lite.task")
+        if os.path.exists(source_path):
+            return source_path
+
+        bundle_base = getattr(sys, "_MEIPASS", None)
+        if bundle_base:
+            bundled_path = os.path.join(
+                bundle_base,
+                "src",
+                "core",
+                "live",
+                "pose_landmarks",
+                "pose_landmarker_lite.task",
+            )
+            if os.path.exists(bundled_path):
+                return bundled_path
+
+        return source_path
+
+    @staticmethod
     def get_pose_landmarker(result_callback=None):
+        model_path = mediaPipeDeclaration._resolve_task_model_path()
         options = mediaPipeDeclaration.PoseLandmarkerOptions(
-                  base_options=mediaPipeDeclaration.BaseOptions(model_asset_path='pose_landmarks/pose_landmarker_lite.task'),
+                  base_options=mediaPipeDeclaration.BaseOptions(model_asset_path=model_path),
                   running_mode=mediaPipeDeclaration.VisionRunningMode.LIVE_STREAM,
                   result_callback=result_callback
                 )
@@ -55,7 +79,7 @@ class mediaPipeDeclaration:
                 min_tracking_confidence=0.5
             )
 
-        model_path = os.path.join(os.path.dirname(__file__), "pose_landmarks", "pose_landmarker_lite.task")
+        model_path = mediaPipeDeclaration._resolve_task_model_path()
         options = mediaPipeDeclaration.PoseLandmarkerOptions(
             base_options=mediaPipeDeclaration.BaseOptions(model_asset_path=model_path),
             running_mode=mediaPipeDeclaration.VisionRunningMode.IMAGE

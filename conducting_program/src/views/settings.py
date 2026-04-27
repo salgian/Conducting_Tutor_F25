@@ -228,12 +228,14 @@ class SettingsView(tk.Frame):
         """Save camera path setting."""
         try:
             camera_path = self.camera_var.get().strip()
-            # Try to convert to int if it's a number, otherwise keep as string
-            try:
+            if camera_path == "":
+                camera_path = 0
+            elif camera_path.lstrip("-").isdigit():
                 camera_path = int(camera_path)
-            except ValueError:
-                pass  # Keep as string for file paths
+            else:
+                camera_path = 0
             self.settings.set_camera_path(camera_path)
+            self.camera_var.set(str(camera_path))
         except Exception:
             # Reset to current setting if invalid
             camera_path = self.settings.get_camera_path()

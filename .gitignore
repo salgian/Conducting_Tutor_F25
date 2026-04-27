@@ -1,3 +1,10 @@
 __pycache__/
 setup.py
 requirements.txt
+conducting_program/build/
+conducting_program/dist/
+conducting_program/build_clean/
+conducting_program/dist_clean/
+build/
+dist/
+*.pkg

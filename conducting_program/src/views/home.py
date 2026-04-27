@@ -11,11 +11,10 @@ menu_hover_color = "#E0AFA0"
 class HomeView(tk.Frame):
     """Home page view with centered title, left menu, and Exit button."""
 
-    def __init__(self, master: tk.Misc | None = None, on_settings=None, on_live=None, on_video=None) -> None:
+    def __init__(self, master: tk.Misc | None = None, on_settings=None, on_live=None) -> None:
         super().__init__(master=master, bg=widget_background)
         self.on_settings = on_settings or (lambda: None)
         self.on_live = on_live or (lambda: None)
-        self.on_video = on_video or (lambda: None)
 
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)
@@ -41,7 +40,6 @@ class HomeView(tk.Frame):
         footer_left = tk.Frame(self, bg=widget_background)
         footer_left.grid(row=3, column=0, sticky="sw", padx=12, pady=12)
         self._menu_item(footer_left, "Live", self.on_live)
-        self._menu_item(footer_left, "Video", self.on_video)
         self._menu_item(footer_left, "Settings", self.on_settings)
 
         # Exit bottom-right

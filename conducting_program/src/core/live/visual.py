@@ -145,11 +145,10 @@ class VisualManager:
     # -------- Timing Display --------
     
     def update_frame_visuals(self, camera_manager, clock_manager):
-        """Update per-frame visual elements (timing info)."""
-        fps = camera_manager.calculate_fps()
-        program_time = clock_manager.format_time(clock_manager.get_program_elapsed_time())
-        session_time = clock_manager.format_time(clock_manager.get_session_elapsed_time())
-        self.timing_visual.draw_fps_and_timers(self.current_frame, fps, program_time, session_time)
+        """Update per-frame visual elements."""
+        # Keep FPS calculation for backend timing stability even though we no longer
+        # draw telemetry overlays directly on the camera feed.
+        camera_manager.calculate_fps()
         
     def trigger_bpm_display(self, bpm, beat_count, current_time):
         """Trigger the BPM overlay display."""
@@ -186,7 +185,6 @@ class VisualManager:
     
     def display_countdown_visuals(self, metronome_manager):
         """Orchestrate countdown state visuals."""
-        self.state_visual.draw_countdown_label(self.current_frame)
         if self.markers_enabled:
             self.beat_visual.draw_beat_circles(self.current_frame, metronome_manager.get_current_beat(), mode='countdown')
     
@@ -203,16 +201,6 @@ class VisualManager:
         clock_manager = self.components['clock_manager']
         frame_width, frame_height = self.get_frame_dimensions()
         
-        # State label
-        self.state_visual.draw_processing_label(self.current_frame)
-        
-        # Beat and measure counter
-        self.timing_visual.draw_beat_and_measure_info(
-            self.current_frame, 
-            metronome_manager.get_current_beat(), 
-            metronome_manager.get_measure_count()
-        )
-        
         if self.markers_enabled:
             # Next beat preview (semi-transparent) - always visible, doesn't flash
             self.beat_visual.draw_next_beat_preview(self.current_frame, metronome_manager.get_current_beat())
@@ -221,25 +209,21 @@ class VisualManager:
             if beat_marker_manager.get_show_visual():
                 self.beat_visual.draw_beat_circles(self.current_frame, metronome_manager.get_current_beat(), mode='processing')
             
-        # Draw BPM overlay if active
-        if self.bpm_visual:
-            self.bpm_visual.draw_bpm_overlay(self.current_frame, clock_manager.get_current_timestamp())
+        # Keep beat pulse text feedback in-frame.
         self._draw_beat_overlay(clock_manager.get_current_timestamp())
         
-        # Midpoint visualization (drawn after beat circles so lines are visible on top)
-        midpoint = midpoint_processor.get_live_midpoint()
-        if midpoint is not None:
-            self.midpoint_visual.draw_live_midpoint_line(self.current_frame, midpoint, frame_width, frame_height)
-        
-        reference_midpoint = midpoint_processor.get_reference_midpoint()
-        if reference_midpoint is not None:
-            self.midpoint_visual.draw_reference_midpoint_line(self.current_frame, reference_midpoint, frame_width, frame_height)
-            
+        # Midpoint visualization is shown only while swaying.
         if sway_detection.get_sway_flag():
-            sway_threshold = sway_detection.get_threshold()
-            self.midpoint_visual.draw_sway_threshold_lines(
-                self.current_frame, reference_midpoint, sway_threshold, frame_width, frame_height
-            )
+            midpoint = midpoint_processor.get_live_midpoint()
+            reference_midpoint = midpoint_processor.get_reference_midpoint()
+            if midpoint is not None:
+                self.midpoint_visual.draw_live_midpoint_line(self.current_frame, midpoint, frame_width, frame_height)
+            if reference_midpoint is not None:
+                self.midpoint_visual.draw_reference_midpoint_line(self.current_frame, reference_midpoint, frame_width, frame_height)
+                sway_threshold = sway_detection.get_threshold()
+                self.midpoint_visual.draw_sway_threshold_lines(
+                    self.current_frame, reference_midpoint, sway_threshold, frame_width, frame_height
+                )
         
         # Feedback messages (drawn last, on top of everything)
         feedback_flags = {

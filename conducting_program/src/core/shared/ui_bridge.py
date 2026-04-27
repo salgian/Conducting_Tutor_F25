@@ -72,6 +72,25 @@ class UIBridge:
         self.current_frame = None
         self.last_error = None
         self.processing_thread = None
+
+    @staticmethod
+    def _normalize_camera_path(camera_path):
+        """Normalize camera input to a valid live camera source."""
+        if camera_path is None:
+            return 0
+
+        if isinstance(camera_path, str):
+            stripped = camera_path.strip()
+            if stripped == "":
+                return 0
+            if stripped.lstrip("-").isdigit():
+                return int(stripped)
+            return 0
+
+        if isinstance(camera_path, (int, float)):
+            return int(camera_path)
+
+        return 0
     
     def initialize_backend(self) -> bool:
         """Initialize all backend components.
@@ -98,7 +117,8 @@ class UIBridge:
         media_pipe_declaration = mediaPipeDeclaration()
         
         # Initialize camera manager with settings
-        camera_path = self.settings.get_camera_path()
+        camera_path = self._normalize_camera_path(self.settings.get_camera_path())
+        self.settings.set_camera_path(camera_path)
         camera_manager = CameraManager(camera_path)
         
         # Initialize core components
@@ -466,6 +486,36 @@ class UIBridge:
             str: Current time signature, or "4/4" if not available
         """
         return self.settings.get_time_signature()
+
+    def get_average_bpm(self) -> int:
+        """Get tracked average BPM, falling back to configured BPM."""
+        bpm_tracker = self.components.get('bpm_tracker') if self.components else None
+        if bpm_tracker:
+            avg_bpm = bpm_tracker.get_average_bpm()
+            if avg_bpm is not None:
+                return int(round(avg_bpm))
+        return self.settings.get_beats_per_minute()
+
+    def get_current_beat_and_measure(self) -> tuple[int, int]:
+        """Get current beat/measure values for UI display."""
+        metronome_manager = self.components.get('metronome_manager') if self.components else None
+        if not metronome_manager:
+            return 1, 0
+        return metronome_manager.get_current_beat(), metronome_manager.get_measure_count()
+
+    def get_markers_enabled(self) -> bool:
+        """Return whether beat markers are currently enabled."""
+        return self.settings.get_markers_enabled()
+
+    def get_current_state_name(self) -> str:
+        """Return current backend state name when available."""
+        system_state = self.components.get('system_state') if self.components else None
+        if not system_state:
+            return "setup"
+        current_state = system_state.get_current_state()
+        if not current_state:
+            return "setup"
+        return current_state.get_state_name()
     
     def update_bpm(self, bpm: int):
         """Update BPM setting and propagate to backend.

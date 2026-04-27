@@ -23,7 +23,6 @@ class LiveView(tk.Frame):
         master: tk.Misc | None = None,
         on_back: Optional[Callable[[], None]] = None,
         on_open_settings: Optional[Callable[[], None]] = None,
-        on_edit_path: Optional[Callable[[], None]] = None,
         on_start: Optional[Callable[[], None]] = None,
         ui_bridge: Optional[UIBridge] = None,
         on_state_change: Optional[Callable[[str], None]] = None,
@@ -31,7 +30,6 @@ class LiveView(tk.Frame):
         super().__init__(master=master, bg=widget_background)
         self._on_back = on_back
         self._on_open_settings = on_open_settings
-        self._on_edit_path = on_edit_path
         self._on_start = on_start
         self.ui_bridge = ui_bridge
         self._on_state_change = on_state_change
@@ -115,7 +113,7 @@ class LiveView(tk.Frame):
         panel.grid(row=0, column=0, sticky="nsew", padx=12, pady=12)
         panel_container.rowconfigure(0, weight=1)
         panel.columnconfigure(0, weight=1)
-        panel.rowconfigure(9, weight=1)  # Spacer row before button
+        panel.rowconfigure(8, weight=1)  # Spacer row before button
 
         # Live preview controls mirror Settings source-of-truth
         self.metronome_enabled_var = tk.BooleanVar()
@@ -161,11 +159,10 @@ class LiveView(tk.Frame):
         self.ts_dropdown.bind("<<ComboboxSelected>>", lambda _e: self._on_ts_change())
 
         # Buttons
-        self._create_styled_button(panel, "Edit Path", lambda: self._fire(self._on_edit_path), row=7)
-        self._create_styled_button(panel, "Settings", lambda: self._fire(self._on_open_settings), row=8)
+        self._create_styled_button(panel, "Settings", lambda: self._fire(self._on_open_settings), row=7)
         
         # Start button at the bottom (store reference for enabling/disabling)
-        self.start_button_frame = self._create_styled_button(panel, "Start", lambda: self._fire(self._on_start), row=9, sticky="sew", return_frame=True)
+        self.start_button_frame = self._create_styled_button(panel, "Start", lambda: self._fire(self._on_start), row=8, sticky="sew", return_frame=True)
         # Initially disable until camera is ready
         self._set_start_button_enabled(False)
 
@@ -211,7 +208,7 @@ class LiveView(tk.Frame):
                     bpm = 60
                 
                 ts = self.ts_var.get()
-                if ts == "Custom" or ts == "Edit Path":
+                if ts == "Custom":
                     ts = "4/4"
                 if ts not in ["4/4", "3/4"]:
                     ts = "4/4"
@@ -379,7 +376,7 @@ class LiveView(tk.Frame):
         ts = self.ts_var.get()
         
         # Handle "Custom" as "4/4"
-        if ts == "Custom" or ts == "Edit Path":
+        if ts == "Custom":
             ts = "4/4"
             self.ts_var.set("4/4")
         

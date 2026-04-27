@@ -1,4 +1,5 @@
 import os
+import sys
 import threading
 import time
 from pydub import AudioSegment
@@ -24,8 +25,10 @@ class SoundManager:
     
     def load_metronome_sound(self):
         """Load the metronome sound file (WAV format)."""
-        # Get path relative to this file: go up 3 levels to project root, then to assets/sounds
-        sound_file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "assets", "sounds", "metro_sound.wav"))
+        sound_file_path = self._resolve_resource_path(
+            os.path.join("assets", "sounds", "metro_sound.wav"),
+            os.path.join("..", "..", "..", "assets", "sounds", "metro_sound.wav"),
+        )
         self.metronome_sound_path = sound_file_path
         
         # Load WAV file directly
@@ -35,6 +38,22 @@ class SoundManager:
             print(f"Metronome sound not found: {sound_file_path}")
             print("Continuing without metronome sound...")
             self.metronome_sound = None
+
+    @staticmethod
+    def _resolve_resource_path(bundle_relative_path: str, source_relative_path: str) -> str:
+        """Resolve a resource path for both source runs and PyInstaller bundles."""
+        source_base = os.path.dirname(__file__)
+        source_candidate = os.path.abspath(os.path.join(source_base, source_relative_path))
+        if os.path.exists(source_candidate):
+            return source_candidate
+
+        bundle_base = getattr(sys, "_MEIPASS", None)
+        if bundle_base:
+            bundle_candidate = os.path.join(bundle_base, bundle_relative_path)
+            if os.path.exists(bundle_candidate):
+                return bundle_candidate
+
+        return source_candidate
 
     def play_metronome_sound(self):
         """Play a single metronome beat (non-blocking)."""

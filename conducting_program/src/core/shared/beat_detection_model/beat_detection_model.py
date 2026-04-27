@@ -1,11 +1,33 @@
 import os
+import sys
 import collections
 import tensorflow as tf
 from tensorflow import keras
 from .normalizer import Normalizer
 
-# Default relative path from this file to the keras model
-DEFAULT_MODEL_PATH = os.path.join(os.path.dirname(__file__), "beat_detector_xy.keras")
+def _resolve_model_path():
+    """Resolve model path for both source runs and PyInstaller bundles."""
+    source_path = os.path.join(os.path.dirname(__file__), "beat_detector_xy.keras")
+    if os.path.exists(source_path):
+        return source_path
+
+    bundle_base = getattr(sys, "_MEIPASS", None)
+    if bundle_base:
+        bundled_path = os.path.join(
+            bundle_base,
+            "src",
+            "core",
+            "shared",
+            "beat_detection_model",
+            "beat_detector_xy.keras",
+        )
+        if os.path.exists(bundled_path):
+            return bundled_path
+
+    return source_path
+
+
+DEFAULT_MODEL_PATH = _resolve_model_path()
 
 @tf.function(reduce_retracing=True)
 def _predict_tf(model, X):

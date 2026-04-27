@@ -41,13 +41,30 @@ class ActiveView(tk.Frame):
         header.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 0))
         header.columnconfigure(0, weight=1)
         header.columnconfigure(1, weight=1)
+        header.columnconfigure(2, weight=1)
 
-        # Spacer to match back button space in live view
-        spacer = tk.Frame(header, bg=widget_background)
-        spacer.grid(row=0, column=0, sticky="w")
+        self.beat_measure_label = tk.Label(
+            header,
+            text="",
+            bg=widget_background,
+            fg=widget_font_color,
+            font=("Poppins", 14, "bold"),
+            anchor="w",
+        )
+        self.beat_measure_label.grid(row=0, column=0, sticky="w")
+
+        self.state_label = tk.Label(
+            header,
+            text="",
+            bg=widget_background,
+            fg=widget_font_color,
+            font=("Poppins", 16, "bold"),
+            anchor="center",
+        )
+        self.state_label.grid(row=0, column=1, sticky="")
 
         title = tk.Label(header, text="Live", bg=widget_background, fg=widget_font_color, font=widget_title_font, anchor="e")
-        title.grid(row=0, column=1, sticky="e")
+        title.grid(row=0, column=2, sticky="e")
 
         # Camera area (full width with padding)
         camera_frame = tk.Frame(self, bg=camera_placeholder_color)
@@ -175,13 +192,27 @@ class ActiveView(tk.Frame):
         seconds = int(session_time % 60)
         self.update_time(f"{minutes:02d}:{seconds:02d}")
         
-        # Update BPM (use selected BPM for now)
-        bpm = self.ui_bridge.get_current_bpm()
+        # Update BPM from detected average where available
+        bpm = self.ui_bridge.get_average_bpm()
         self.update_bpm(bpm)
         
         # Update time signature
         ts = self.ui_bridge.get_time_signature()
         self.update_time_signature(ts)
+
+        # Update beat/measure in top bar only when beat markers are enabled
+        current_state = self.ui_bridge.get_current_state_name()
+        show_active_state = current_state in {"countdown", "processing"}
+        self.update_state_label(current_state if show_active_state else None)
+
+        if self.ui_bridge.get_markers_enabled() and show_active_state:
+            if current_state == "processing":
+                current_beat, measure_count = self.ui_bridge.get_current_beat_and_measure()
+                self.update_beat_measure(current_beat, measure_count)
+            else:
+                self.update_beat_measure(0, 0)
+        else:
+            self.update_beat_measure(None, None)
         
         # Schedule next update (1 second)
         self.metrics_update_id = self.after(1000, self._start_metrics_updates)
@@ -242,6 +273,20 @@ class ActiveView(tk.Frame):
     def update_time_signature(self, ts: str) -> None:
         """Update the time signature display."""
         self.ts_label.configure(text=f"Time Sig {ts}")
+
+    def update_beat_measure(self, beat: int | None, measure: int | None) -> None:
+        """Update the top-bar beat/measure display."""
+        if beat is None or measure is None:
+            self.beat_measure_label.configure(text="")
+            return
+        self.beat_measure_label.configure(text=f"Measure {measure}   Beat {beat}")
+
+    def update_state_label(self, state_name: str | None) -> None:
+        """Update centered top-bar state label for active states."""
+        if not state_name:
+            self.state_label.configure(text="")
+            return
+        self.state_label.configure(text=state_name.upper())
 
     @staticmethod
     def _fire(cb: Optional[Callable[[], None]]) -> None:
