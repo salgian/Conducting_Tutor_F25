@@ -1,7 +1,7 @@
 import os
 
-VIDEO_PATH = ""
-EXPORT_PATH = "output\_analysis_20260409_111344\conducting_analysis"
+VIDEO_PATH = "C:/Users/ldepo/Downloads/2-4legato(1).mp4"
+EXPORT_PATH = "output\2-4legato(1)_analysis_20260915_100017\conducting_analysis"
 
 # returns the name of the video file being processed
 def initialize_video():

@@ -473,8 +473,9 @@ class UIBridge:
     def update_camera_path(self, camera):
         if 'camera_manager' in self.components:
             camera_manager = self.components['camera_manager']
-            camera_manager.set_camera_index(camera)
             self.settings.set_camera_path(camera)
+            camera_manager.set_camera_index(camera)
+            
 
         
 

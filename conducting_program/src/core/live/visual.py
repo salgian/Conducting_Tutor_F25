@@ -249,7 +249,7 @@ class VisualManager:
             'watch_right_elbow': elbow_detection.get_watch_right_elbow()
         }
         self.feedback_visual.draw_feedback_messages(self.current_frame, feedback_flags)
-    
+        cv2.imwrite("debug_feedback_frame.jpg", self.current_frame)
     def display_ending_visuals(self):
         """Orchestrate ending state visuals."""
         self.state_visual.draw_ending_label(self.current_frame)

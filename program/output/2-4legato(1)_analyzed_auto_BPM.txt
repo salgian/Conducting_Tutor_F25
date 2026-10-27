@@ -1,0 +1,8 @@
+Beats per minute (BPM) at frame 28: 0
+Beats per minute (BPM) at frame 45: 102.4
+Beats per minute (BPM) at frame 65: 94.1
+Beats per minute (BPM) at frame 84: 93.2
+Beats per minute (BPM) at frame 105: 90.4
+Beats per minute (BPM) at frame 124: 90.6
+Beats per minute (BPM) at frame 146: 88.5
+Beats per minute (BPM) at frame 165: 88.9

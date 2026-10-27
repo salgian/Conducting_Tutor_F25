@@ -1,7 +1,7 @@
+import customtkinter as ctk
 import tkinter as tk
-import tkinter.ttk as ttk
-from tkinter import messagebox
-from typing import Callable, Optional
+from tkinter import messagebox #There is a messagebox package dependency needed to install
+from typing import Callable, Optional, Any
 import sys
 from pathlib import Path
 
@@ -15,16 +15,16 @@ camera_placeholder_color = '#8A817C'  # lighter grey for camera area
 disabled_color = '#6B6560'  # Greyed out color
 
 
-class EditView(tk.Frame):
+class EditView(ctk.CTkFrame):
     """Edit path page layout with camera area and a right-side settings panel."""
 
     def __init__(
         self,
-        master: tk.Misc | None = None,
+        master: Any | None = None,
         on_back: Optional[Callable[[], None]] = None,
         on_start: Optional[Callable[[], None]] = None,
     ) -> None:
-        super().__init__(master=master, bg=widget_background)
+        super().__init__(master=master, fg_color=widget_background)
         self._on_back = on_back
         self._on_start = on_start
         self._has_unsaved_changes = False
@@ -35,33 +35,33 @@ class EditView(tk.Frame):
         self.rowconfigure(1, weight=1)
 
         # Header
-        header = tk.Frame(self, bg=widget_background)
+        header = ctk.CTkFrame(self, fg_color=widget_background)
         header.grid(row=0, column=0, columnspan=2, sticky="ew", padx=12, pady=(12, 0))
         header.columnconfigure(0, weight=1)
         header.columnconfigure(1, weight=1)
 
-        back_frame = tk.Frame(
+        back_frame = ctk.CTkFrame(
             header,
-            bg=widget_background,
-            highlightthickness=2,
-            highlightbackground=widget_font_color,
-            highlightcolor=widget_font_color,
-            bd=0,
-            padx=12,
-            pady=6,
+            fg_color=widget_background,
+            #highlightthickness=2,
+            #highlightbackground=widget_font_color,
+            #highlightcolor=widget_font_color,
+            border_width=0,
+            #padx=12,
+            #pady=6,
             cursor="hand2",
         )
         back_frame.grid(row=0, column=0, sticky="w")
-        back_label = tk.Label(back_frame, text="Back", bg=widget_background, fg=widget_font_color, font=("Poppins", 16, "bold"))
+        back_label = ctk.CTkLabel(back_frame, text="Back", fg_color=widget_background, text_color=widget_font_color, font=("Poppins", 16, "bold"))
         back_label.pack()
 
-        def on_enter(_e: tk.Event) -> None:
-            back_frame.configure(bg=menu_hover_color)
-            back_label.configure(bg=menu_hover_color, text="<- Back")
+        def on_enter(_e: Any) -> None:
+            back_frame.configure(fg_color=menu_hover_color)
+            back_label.configure(fg_color=menu_hover_color, text="<- Back")
 
-        def on_leave(_e: tk.Event) -> None:
-            back_frame.configure(bg=widget_background)
-            back_label.configure(bg=widget_background, text="Back")
+        def on_leave(_e: Any) -> None:
+            back_frame.configure(fg_color=widget_background)
+            back_label.configure(fg_color=widget_background, text="Back")
 
         back_frame.bind("<Enter>", on_enter)
         back_frame.bind("<Leave>", on_leave)
@@ -70,54 +70,54 @@ class EditView(tk.Frame):
         back_frame.bind("<Button-1>", lambda _e: self._handle_back())
         back_label.bind("<Button-1>", lambda _e: self._handle_back())
 
-        title = tk.Label(header, text="Edit Path", bg=widget_background, fg=widget_font_color, font=widget_title_font, anchor="e")
+        title = ctk.CTkLabel(header, text="Edit Path", fg_color=widget_background, text_color=widget_font_color, font=widget_title_font, anchor="e")
         title.grid(row=0, column=1, sticky="e")
 
         # Main content: camera area (left) and settings panel (right)
-        camera_frame = tk.Frame(self, bg=camera_placeholder_color)
+        camera_frame = ctk.CTkFrame(self, fg_color=camera_placeholder_color)
         camera_frame.grid(row=1, column=0, sticky="nsew", padx=(12, 6), pady=12)
         camera_frame.rowconfigure(0, weight=1)
         camera_frame.columnconfigure(0, weight=1)
 
-        placeholder = tk.Label(
+        placeholder = ctk.CTkLabel(
             camera_frame,
             text="No Camera",
-            bg=camera_placeholder_color,
-            fg=widget_background,
+            fg_color=camera_placeholder_color,
+            text_color=widget_background,
             font=("Poppins", 20, "bold"),
         )
         placeholder.grid(row=0, column=0)
 
         # Settings panel
-        panel_container = tk.Frame(self, bg=camera_placeholder_color)
+        panel_container = ctk.CTkFrame(self, fg_color=camera_placeholder_color)
         panel_container.grid(row=1, column=1, sticky="ns", padx=(6, 12), pady=12)
         panel_container.columnconfigure(0, minsize=300)  # Set minimum width
         
-        panel = tk.Frame(panel_container, bg=camera_placeholder_color)
+        panel = ctk.CTkFrame(panel_container, fg_color=camera_placeholder_color)
         panel.grid(row=0, column=0, sticky="nsew", padx=12, pady=12)
         panel_container.rowconfigure(0, weight=1)
         panel.columnconfigure(0, weight=1)
         panel.rowconfigure(10, weight=1)
 
         # Control variables
-        self.preset_var = tk.StringVar(value="Edit Path")
-        self.show_kinesis_var = tk.BooleanVar(value=False)
-        self.center_kinesis_var = tk.BooleanVar(value=False)
-        self.beats_var = tk.StringVar()
-        self.path_name_var = tk.StringVar()
-        self.is_editing = tk.BooleanVar(value=True)
+        self.preset_var = ctk.StringVar(value="Edit Path")
+        self.show_kinesis_var = ctk.BooleanVar(value=False)
+        self.center_kinesis_var = ctk.BooleanVar(value=False)
+        self.beats_var = ctk.StringVar()
+        self.path_name_var = ctk.StringVar()
+        self.is_editing = ctk.BooleanVar(value=True)
         
         # Preset dropdown
-        preset_label = tk.Label(panel, text="Preset", bg=camera_placeholder_color, fg=widget_background, font=("Poppins", 14, "bold"))
+        preset_label = ctk.CTkLabel(panel, text="Preset", fg_color=camera_placeholder_color, text_color=widget_background, font=("Poppins", 14, "bold"))
         preset_label.grid(row=0, column=0, sticky="w", pady=(0, 6))
         
-        preset_frame = tk.Frame(panel, bg=camera_placeholder_color)
+        preset_frame = ctk.CTkFrame(panel, fg_color=camera_placeholder_color)
         preset_frame.grid(row=1, column=0, sticky="ew", pady=(0, 6))
         preset_frame.columnconfigure(0, weight=1)
         
-        preset_dropdown = ttk.Combobox(
+        preset_dropdown = ctk.CTkComboBox(
             preset_frame,
-            textvariable=self.preset_var,
+            variable=self.preset_var,
             values=["4/4", "3/4", "Edit Path"],
             state="readonly",
             width=15,
@@ -125,34 +125,34 @@ class EditView(tk.Frame):
         preset_dropdown.grid(row=0, column=0, sticky="w")
         
         # Edit button (shown when preset is selected)
-        self.edit_button_frame = tk.Frame(
+        self.edit_button_frame = ctk.CTkFrame(
             preset_frame,
-            bg="#FFFFFF",
-            highlightthickness=2,
-            highlightbackground=widget_background,
-            highlightcolor=widget_background,
-            bd=0,
-            padx=8,
-            pady=4,
+            fg_color="#FFFFFF",
+            #highlightthickness=2,
+            #highlightbackground=widget_background,
+            #highlightcolor=widget_background,
+            border_width=0,
+            #padx=8,
+            #pady=4,
             cursor="hand2",
         )
-        self.edit_button_label = tk.Label(
+        self.edit_button_label = ctk.CTkLabel(
             self.edit_button_frame,
             text="Edit",
-            bg="#FFFFFF",
-            fg=widget_background,
+            fg_color="#FFFFFF",
+            text_color=widget_background,
             font=("Poppins", 12, "bold"),
         )
         self.edit_button_label.pack()
         self.edit_button_frame.grid(row=0, column=1, sticky="e", padx=(6, 0))
         
-        def on_edit_enter(_e: tk.Event) -> None:
-            self.edit_button_frame.configure(bg=menu_hover_color, highlightbackground=widget_background, highlightcolor=widget_background)
-            self.edit_button_label.configure(bg=menu_hover_color)
+        def on_edit_enter(_e: Any) -> None:
+            self.edit_button_frame.configure(fg_color=menu_hover_color, highlightbackground=widget_background, highlightcolor=widget_background)
+            self.edit_button_label.configure(fg_color=menu_hover_color)
         
-        def on_edit_leave(_e: tk.Event) -> None:
-            self.edit_button_frame.configure(bg="#FFFFFF", highlightbackground=widget_background, highlightcolor=widget_background)
-            self.edit_button_label.configure(bg="#FFFFFF")
+        def on_edit_leave(_e: Any) -> None:
+            self.edit_button_frame.configure(fg_color="#FFFFFF", highlightbackground=widget_background, highlightcolor=widget_background)
+            self.edit_button_label.configure(fg_color="#FFFFFF")
         
         self.edit_button_frame.bind("<Enter>", on_edit_enter)
         self.edit_button_frame.bind("<Leave>", on_edit_leave)
@@ -162,18 +162,18 @@ class EditView(tk.Frame):
         self.edit_button_label.bind("<Button-1>", lambda _e: self._on_edit_click())
         
         # Path name entry
-        self.path_name_label = tk.Label(panel, text="Path Name", bg=camera_placeholder_color, fg=widget_background, font=("Poppins", 12, "bold"))
+        self.path_name_label = ctk.CTkLabel(panel, text="Path Name", fg_color=camera_placeholder_color, text_color=widget_background, font=("Poppins", 12, "bold"))
         self.path_name_label.grid(row=2, column=0, sticky="w", pady=(6, 4))
-        self.path_name_frame = tk.Frame(
+        self.path_name_frame = ctk.CTkFrame(
             panel,
-            bg=widget_background,
-            highlightthickness=2,
-            highlightbackground=widget_background,
-            highlightcolor=widget_background,
-            bd=0,
+            fg_color=widget_background,
+            #highlightthickness=2,
+            #highlightbackground=widget_background,
+            #highlightcolor=widget_background,
+            border_width=0,
         )
         self.path_name_frame.grid(row=3, column=0, sticky="w", pady=(0, 10))
-        self.path_name_entry = ttk.Entry(self.path_name_frame, width=18, textvariable=self.path_name_var)
+        self.path_name_entry = ctk.CTkEntry(self.path_name_frame, width=18, textvariable=self.path_name_var)
         self.path_name_entry.insert(0, "Enter Path Name")
         self.path_name_entry.pack(padx=2, pady=2)
         
@@ -181,7 +181,7 @@ class EditView(tk.Frame):
         self.control_widgets = []
         
         # Kinesis Sphere controls
-        kinesis_label = tk.Label(panel, text="Kinesis Sphere", bg=camera_placeholder_color, fg=widget_background, font=("Poppins", 14, "bold"))
+        kinesis_label = ctk.CTkLabel(panel, text="Kinesis Sphere", fg_color=camera_placeholder_color, text_color=widget_background, font=("Poppins", 14, "bold"))
         kinesis_label.grid(row=4, column=0, sticky="w", pady=(0, 6))
         self.control_widgets.append(kinesis_label)
 
@@ -192,24 +192,24 @@ class EditView(tk.Frame):
         self.control_widgets.append(checkbox2)
 
         # Beat Regions controls
-        beats_label = tk.Label(panel, text="Beat Regions", bg=camera_placeholder_color, fg=widget_background, font=("Poppins", 14, "bold"))
+        beats_label = ctk.CTkLabel(panel, text="Beat Regions", fg_color=camera_placeholder_color, text_color=widget_background, font=("Poppins", 14, "bold"))
         beats_label.grid(row=7, column=0, sticky="w", pady=(12, 4))
         self.control_widgets.append(beats_label)
 
-        beats_entry_label = tk.Label(panel, text="Amount of Beats", bg=camera_placeholder_color, fg=widget_background, font=("Poppins", 12, "bold"))
+        beats_entry_label = ctk.CTkLabel(panel, text="Amount of Beats", fg_color=camera_placeholder_color, text_color=widget_background, font=("Poppins", 12, "bold"))
         beats_entry_label.grid(row=8, column=0, sticky="w", pady=(0, 4))
         self.control_widgets.append(beats_entry_label)
         
-        beats_entry_frame = tk.Frame(
+        beats_entry_frame = ctk.CTkFrame(
             panel,
-            bg=widget_background,
-            highlightthickness=2,
-            highlightbackground=widget_background,
-            highlightcolor=widget_background,
-            bd=0,
+            fg_color=widget_background,
+            #highlightthickness=2,
+            #highlightbackground=widget_background,
+            #highlightcolor=widget_background,
+            border_width=0,
         )
         beats_entry_frame.grid(row=9, column=0, sticky="w", pady=(0, 10))
-        self.beats_entry = ttk.Entry(beats_entry_frame, width=18, textvariable=self.beats_var)
+        self.beats_entry = ctk.CTkEntry(beats_entry_frame, width=18, textvariable=self.beats_var)
         self.beats_entry.insert(0, "Enter Beats")
         self.beats_entry.pack(padx=2, pady=2)
         self.control_widgets.append(beats_entry_frame)
@@ -223,16 +223,17 @@ class EditView(tk.Frame):
         self._on_preset_change()
         self._track_changes()
 
-        footer = tk.Label(self, text="edit paths", bg=widget_background, fg=widget_font_color, font=("Poppins", 12, "bold"))
+        footer = ctk.CTkLabel(self, text="edit paths", fg_color=widget_background, text_color=widget_font_color, font=("Poppins", 12, "bold"))
         footer.grid(row=2, column=0, columnspan=2, sticky="w", padx=12, pady=(0, 8))
 
-        # Style ttk controls
-        try:
-            style = ttk.Style(self)
-            style.theme_use(style.theme_use())
-            style.configure("TEntry", fieldbackground="#D9D9D9")
-        except tk.TclError:
-            pass
+        # Style ctk controls
+    
+    #    try:
+    #        style = ctk.Style(self)
+    #        style.theme_use(style.theme_use())
+    #        style.configure("TEntry", fieldbackground="#D9D9D9")
+    #    except ctk.TclError:
+    #        pass
     
     def _track_changes(self) -> None:
         """Track changes to detect unsaved modifications."""
@@ -320,17 +321,17 @@ class EditView(tk.Frame):
         checkbox_frames = []
         
         for widget in self.control_widgets:
-            if isinstance(widget, tk.Label):
-                widget.configure(fg=color)
-            elif isinstance(widget, tk.Frame):
+            if isinstance(widget, ctk.CTkLabel):
+                widget.configure(text_color=color)
+            elif isinstance(widget, ctk.CTkFrame):
                 if hasattr(widget, 'checkbox_canvas'):
                     checkbox_frames.append(widget)
-                    widget.label.configure(fg=color, cursor="hand2" if enabled else "arrow")
+                    widget.label.configure(text_color=color, cursor="hand2" if enabled else "arrow")
                 else:
                     for child in widget.winfo_children():
-                        if isinstance(child, ttk.Entry):
+                        if isinstance(child, ctk.CTkEntry):
                             child.configure(state=state)
-            elif isinstance(widget, ttk.Entry):
+            elif isinstance(widget, ctk.CTkEntry):
                 widget.configure(state=state)
         
         # Handle checkboxes
@@ -340,7 +341,7 @@ class EditView(tk.Frame):
             var = widget.variable
             
             if not enabled:
-                canvas.configure(bg=disabled_color)
+                canvas.configure(fg_color=disabled_color)
                 for item in canvas.find_all():
                     canvas.itemconfig(item, fill=disabled_color, outline=disabled_color)
                 canvas.unbind("<Button-1>")
@@ -356,15 +357,15 @@ class EditView(tk.Frame):
                     canvas.delete("checkmark")
                     canvas.create_rectangle(1, 1, 19, 19, outline=widget_background, width=2, fill="#FFFFFF", tags="checkmark")
                 
-                def toggle_checkbox(_e: tk.Event = None) -> None:
+                def toggle_checkbox(_e: Any = None) -> None:
                     var.set(not var.get())
                     canvas.delete("checkmark")
                     if var.get():
-                        canvas.configure(bg=menu_hover_color)
+                        canvas.configure(fg_color=menu_hover_color)
                         canvas.create_rectangle(1, 1, 19, 19, outline=widget_background, width=2, fill=menu_hover_color, tags="checkmark")
                         canvas.create_text(10, 10, text="✓", fill=widget_background, font=("Poppins", 10, "bold"), tags="checkmark")
                     else:
-                        canvas.configure(bg="#FFFFFF")
+                        canvas.configure(fg_color="#FFFFFF")
                         canvas.create_rectangle(1, 1, 19, 19, outline=widget_background, width=2, fill="#FFFFFF", tags="checkmark")
                 
                 canvas.bind("<Button-1>", toggle_checkbox)
@@ -395,13 +396,13 @@ class EditView(tk.Frame):
         
         self._fire(self._on_start)
 
-    def _create_checkbox(self, parent: tk.Widget, text: str, variable: tk.BooleanVar, row: int) -> tk.Frame:
+    def _create_checkbox(self, parent: Any, text: str, variable: ctk.BooleanVar, row: int) -> ctk.CTkFrame:
         """Create a styled checkbox with a clickable box that turns accent pink.
         
         Returns:
             The checkbox frame widget for enabling/disabling.
         """
-        checkbox_frame = tk.Frame(parent, bg=camera_placeholder_color)
+        checkbox_frame = ctk.CTkFrame(parent, fg_color=camera_placeholder_color)
         checkbox_frame.grid(row=row, column=0, sticky="w", pady=(0, 6))
         
         checkbox_canvas = tk.Canvas(
@@ -416,16 +417,16 @@ class EditView(tk.Frame):
         checkbox_canvas.pack(side="left", padx=(0, 8))
         checkbox_canvas.create_rectangle(1, 1, 19, 19, outline=widget_background, width=2, fill="#FFFFFF", tags="border")
         
-        label = tk.Label(
+        label = ctk.CTkLabel(
             checkbox_frame,
             text=text,
-            bg=camera_placeholder_color,
-            fg=widget_background,
+            fg_color=camera_placeholder_color,
+            text_color=widget_background,
             font=("Poppins", 12, "bold"),
         )
         label.pack(side="left")
         
-        def toggle_checkbox(_e: tk.Event = None) -> None:
+        def toggle_checkbox(_e: Any = None) -> None:
             variable.set(not variable.get())
             update_checkbox_appearance()
         
@@ -454,44 +455,44 @@ class EditView(tk.Frame):
         
         return checkbox_frame
 
-    def _create_styled_button(self, parent: tk.Widget, text: str, command: Callable[[], None], row: int, sticky: str = "ew") -> None:
+    def _create_styled_button(self, parent: Any, text: str, command: Callable[[], None], row: int, sticky: str = "ew") -> None:
         """Create a styled button with accent pink hover effect."""
-        button_frame = tk.Frame(
+        button_frame = ctk.CTkFrame(
             parent,
-            bg="#FFFFFF",
-            highlightthickness=2,
-            highlightbackground=widget_background,
-            highlightcolor=widget_background,
-            bd=0,
-            padx=12,
-            pady=6,
-            cursor="hand2",
+            fg_color="#FFFFFF",
+            #ighlightthickness=2,
+            #highlightbackground=widget_background,
+            #highlightcolor=widget_background,
+            border_width=0,
+            #padx=12,
+            #pady=6,
+            #cursor="hand2",
         )
         button_frame.grid(row=row, column=0, sticky=sticky, pady=(0, 6))
         parent.columnconfigure(0, weight=1)
         
-        button_label = tk.Label(
+        button_label = ctk.CTkLabel(
             button_frame,
             text=text,
-            bg="#FFFFFF",
-            fg=widget_background,
+            fg_color="#FFFFFF",
+            text_color=widget_background,
             font=("Poppins", 16, "bold"),
         )
         button_label.pack()
         
-        def on_enter(_e: tk.Event) -> None:
-            button_frame.configure(bg=menu_hover_color, highlightbackground=widget_background, highlightcolor=widget_background)
-            button_label.configure(bg=menu_hover_color)
+        def on_enter(_e: Any) -> None:
+            button_frame.configure(fg_color=menu_hover_color, highlightbackground=widget_background, highlightcolor=widget_background)
+            button_label.configure(fg_color=menu_hover_color)
         
-        def on_leave(_e: tk.Event) -> None:
-            button_frame.configure(bg="#FFFFFF", highlightbackground=widget_background, highlightcolor=widget_background)
-            button_label.configure(bg="#FFFFFF")
+        def on_leave(_e: Any) -> None:
+            button_frame.configure(fg_color="#FFFFFF", highlightbackground=widget_background, highlightcolor=widget_background)
+            button_label.configure(fg_color="#FFFFFF")
         
-        def on_click(_e: tk.Event) -> None:
+        def on_click(_e: Any) -> None:
             command()
-            button_frame.configure(bg=menu_hover_color)
-            button_label.configure(bg=menu_hover_color)
-            button_frame.after(100, lambda: button_frame.configure(bg="#FFFFFF") or button_label.configure(bg="#FFFFFF"))
+            button_frame.configure(fg_color=menu_hover_color)
+            button_label.configure(fg_color=menu_hover_color)
+            button_frame.after(100, lambda: button_frame.configure(fg_color="#FFFFFF") or button_label.configure(fg_color="#FFFFFF"))
         
         button_frame.bind("<Enter>", on_enter)
         button_frame.bind("<Leave>", on_leave)
@@ -510,8 +511,8 @@ class EditView(tk.Frame):
 
 
 def main() -> None:
-    root = tk.Tk()
-    root.configure(bg=widget_background)
+    root = ctk.CTk()
+    root.configure(fg_color=widget_background)
     view = EditView(root)
     view.pack(fill="both", expand=True)
     root.mainloop()

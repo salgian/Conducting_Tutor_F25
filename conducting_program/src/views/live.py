@@ -1,9 +1,9 @@
+import customtkinter as ctk
 import tkinter as tk
-import tkinter.ttk as ttk
-from typing import Callable, Optional
+from typing import Callable, Optional, Any
 import cv2
 import numpy as np
-from PIL import Image, ImageTk
+from PIL import Image
 
 from src.core.shared.settings import Settings
 from src.core.shared.ui_bridge import UIBridge
@@ -15,12 +15,12 @@ menu_hover_color = "#E0AFA0"
 camera_placeholder_color = '#8A817C'  # lighter grey for camera area
 
 
-class LiveView(tk.Frame):
+class LiveView(ctk.CTkFrame):
     """Live page layout with camera area and a right-side settings panel."""
 
     def __init__(
         self,
-        master: tk.Misc | None = None,
+        master: Any | None = None,
         on_back: Optional[Callable[[], None]] = None,
         on_open_settings: Optional[Callable[[], None]] = None,
         on_edit_path: Optional[Callable[[], None]] = None,
@@ -28,7 +28,7 @@ class LiveView(tk.Frame):
         ui_bridge: Optional[UIBridge] = None,
         on_state_change: Optional[Callable[[str], None]] = None,
     ) -> None:
-        super().__init__(master=master, bg=widget_background)
+        super().__init__(master=master, fg_color=widget_background)
         self._on_back = on_back
         self._on_open_settings = on_open_settings
         self._on_edit_path = on_edit_path
@@ -51,33 +51,33 @@ class LiveView(tk.Frame):
         self.rowconfigure(2, weight=0)
 
         # Header
-        header = tk.Frame(self, bg=widget_background)
+        header = ctk.CTkFrame(self, fg_color=widget_background)
         header.grid(row=0, column=0, columnspan=2, sticky="ew", padx=12, pady=(12, 0))
         header.columnconfigure(0, weight=1)
         header.columnconfigure(1, weight=1)
 
-        back_frame = tk.Frame(
+        back_frame = ctk.CTkFrame(
             header,
-            bg=widget_background,
-            highlightthickness=2,
-            highlightbackground=widget_font_color,
-            highlightcolor=widget_font_color,
-            bd=0,
-            padx=12,
-            pady=6,
+            fg_color=widget_background,
+            #highlightthickness=2,
+            #highlightbackground=widget_font_color,
+            #highlightcolor=widget_font_color,
+            border_width=0,
+            #padx=12,
+            #pady=6,
             cursor="hand2",
         )
         back_frame.grid(row=0, column=0, sticky="w")
-        back_label = tk.Label(back_frame, text="Back", bg=widget_background, fg=widget_font_color, font=("Poppins", 16, "bold"))
+        back_label = ctk.CTkLabel(back_frame, text="Back", fg_color=widget_background, text_color=widget_font_color, font=("Poppins", 16, "bold"))
         back_label.pack()
 
-        def on_enter(_e: tk.Event) -> None:
-            back_frame.configure(bg=menu_hover_color)
-            back_label.configure(bg=menu_hover_color, text="<- Back")
+        def on_enter(_e: Any) -> None:
+            back_frame.configure(fg_color=menu_hover_color)
+            back_label.configure(fg_color=menu_hover_color, text="<- Back")
 
-        def on_leave(_e: tk.Event) -> None:
-            back_frame.configure(bg=widget_background)
-            back_label.configure(bg=widget_background, text="Back")
+        def on_leave(_e: Any) -> None:
+            back_frame.configure(fg_color=widget_background)
+            back_label.configure(fg_color=widget_background, text="Back")
 
         back_frame.bind("<Enter>", on_enter)
         back_frame.bind("<Leave>", on_leave)
@@ -86,43 +86,43 @@ class LiveView(tk.Frame):
         back_frame.bind("<Button-1>", lambda _e: self._fire(self._on_back))
         back_label.bind("<Button-1>", lambda _e: self._fire(self._on_back))
 
-        title = tk.Label(header, text="Live", bg=widget_background, fg=widget_font_color, font=widget_title_font, anchor="e")
+        title = ctk.CTkLabel(header, text="Live", fg_color=widget_background, text_color=widget_font_color, font=widget_title_font, anchor="e")
         title.grid(row=0, column=1, sticky="e")
 
         # Main content:
         # Left: camera display
-        camera_frame = tk.Frame(self, bg=camera_placeholder_color)
-        camera_frame.grid(row=1, column=0, sticky="nsew", padx=(12, 6), pady=12)
+        camera_frame = ctk.CTkFrame(self, fg_color=camera_placeholder_color)
+        camera_frame.grid(row=1, column=0, sticky="nsew")
         camera_frame.rowconfigure(0, weight=1)
         camera_frame.columnconfigure(0, weight=1)
 
         # Camera display label
-        self.camera_label = tk.Label(
+        self.camera_label = ctk.CTkLabel(
             camera_frame,
             text="No Camera",
-            bg=camera_placeholder_color,
-            fg=widget_background,
+            fg_color=camera_placeholder_color,
+            text_color=widget_background,
             font=("Poppins", 20, "bold"),
         )
         self.camera_label.grid(row=0, column=0)
 
         # Right: settings panel with grey container background
-        panel_container = tk.Frame(self, bg=camera_placeholder_color)
+        panel_container = ctk.CTkFrame(self, fg_color=camera_placeholder_color)
         panel_container.grid(row=1, column=1, sticky="ns", padx=(6, 12), pady=12)
         panel_container.columnconfigure(0, minsize=300)  # Set minimum width
         
-        panel = tk.Frame(panel_container, bg=camera_placeholder_color)
+        panel = ctk.CTkFrame(panel_container, fg_color=camera_placeholder_color)
         panel.grid(row=0, column=0, sticky="nsew", padx=12, pady=12)
         panel_container.rowconfigure(0, weight=1)
         panel.columnconfigure(0, weight=1)
         panel.rowconfigure(9, weight=1)  # Spacer row before button
 
         # Live preview controls mirror Settings source-of-truth
-        self.metronome_enabled_var = tk.BooleanVar()
-        self.markers_enabled_var = tk.BooleanVar()
-        self.conducting_hand_marker_enabled_var = tk.BooleanVar()
-        self.bpm_var = tk.StringVar()
-        self.ts_var = tk.StringVar()
+        self.metronome_enabled_var = ctk.BooleanVar()
+        self.markers_enabled_var = ctk.BooleanVar()
+        self.conducting_hand_marker_enabled_var = ctk.BooleanVar()
+        self.bpm_var = ctk.StringVar()
+        self.ts_var = ctk.StringVar()
 
         # Checkboxes
         self._create_checkbox(panel, "Metronome", self.metronome_enabled_var, row=0, on_toggle=self._on_metronome_toggle)
@@ -130,31 +130,31 @@ class LiveView(tk.Frame):
         self._create_checkbox(panel, "Conducting Hand Marker", self.conducting_hand_marker_enabled_var, row=2, on_toggle=self._on_hand_marker_toggle)
 
         # BPM label and entry
-        bpm_label = tk.Label(panel, text="BPM", bg=camera_placeholder_color, fg=widget_background, font=("Poppins", 12, "bold"))
+        bpm_label = ctk.CTkLabel(panel, text="BPM", fg_color=camera_placeholder_color, text_color=widget_background, font=("Poppins", 12, "bold"))
         bpm_label.grid(row=3, column=0, sticky="w", pady=(6, 4))
-        bpm_entry_frame = tk.Frame(
+        bpm_entry_frame = ctk.CTkFrame(
             panel,
-            bg=widget_background,
-            highlightthickness=2,
-            highlightbackground=widget_background,
-            highlightcolor=widget_background,
-            bd=0,
+            fg_color=widget_background,
+            #highlightthickness=2,
+            #highlightbackground=widget_background,
+            #highlightcolor=widget_background,
+            border_width=0,
         )
         bpm_entry_frame.grid(row=4, column=0, sticky="w", pady=(0, 6))
-        bpm_entry = ttk.Entry(bpm_entry_frame, width=18, textvariable=self.bpm_var)
+        bpm_entry = ctk.CTkEntry(bpm_entry_frame, width=40, textvariable=self.bpm_var)
         bpm_entry.insert(0, str(self.settings.get_beats_per_minute()))
         bpm_entry.pack(padx=2, pady=2)
         bpm_entry.bind("<Return>", lambda _e: self._on_bpm_enter())
 
         # Time Signature label and dropdown
-        ts_label = tk.Label(panel, text="Time Signature", bg=camera_placeholder_color, fg=widget_background, font=("Poppins", 12, "bold"))
+        ts_label = ctk.CTkLabel(panel, text="Time Signature", fg_color=camera_placeholder_color, text_color=widget_background, font=("Poppins", 12, "bold"))
         ts_label.grid(row=5, column=0, sticky="w", pady=(6, 4))
-        self.ts_dropdown = ttk.Combobox(
+        self.ts_dropdown = ctk.CTkComboBox(
             panel,
-            textvariable=self.ts_var,
+            variable=self.ts_var,
             values=["4/4", "3/4", "Custom"],
             state="readonly",
-            width=16,
+            width=100,
         )
         self.ts_dropdown.grid(row=6, column=0, sticky="w", pady=(0, 10))
         self.ts_dropdown.set(self.settings.get_time_signature())  # Set from settings
@@ -170,18 +170,18 @@ class LiveView(tk.Frame):
         self._set_start_button_enabled(False)
 
         # Footer hint under camera
-        footer = tk.Label(self, text="Bring band to attention to start the program", bg=widget_background, fg=widget_font_color, font=("Poppins", 12, "bold"))
+        footer = ctk.CTkLabel(self, text="Bring band to attention to start the program", fg_color=widget_background, text_color=widget_font_color, font=("Poppins", 12, "bold"))
         footer.grid(row=2, column=0, columnspan=2, sticky="w", padx=12, pady=(0, 8))
 
         self.refresh_settings()
 
         # Style tweaks for ttk controls to blend with dark theme
-        try:
-            style = ttk.Style(self)
-            style.theme_use(style.theme_use())
-            style.configure("TEntry", fieldbackground="#D9D9D9")
-        except tk.TclError:
-            pass
+        #try:
+        #    style = ctk.Style(self)
+        #    style.theme_use(style.theme_use())
+        #    style.configure("TEntry", fieldbackground="#D9D9D9")
+        #except ctk.TclError:
+        #    pass
     
     def initialize_backend(self) -> bool:
         """Initialize backend asynchronously when view is shown to avoid UI freeze."""
@@ -193,7 +193,7 @@ class LiveView(tk.Frame):
 
         # Show loading message
         if self.camera_label:
-            self.camera_label.configure(text="Initializing camera...", fg=widget_background)
+            self.camera_label.configure(text="Initializing camera...", text_color=widget_background)
         
         # Start async initialization
         import threading
@@ -260,7 +260,7 @@ class LiveView(tk.Frame):
     def _show_error(self, message: str) -> None:
         """Show error message to user and disable Start button."""
         if self.camera_label:
-            self.camera_label.configure(text=f"Error: {message}", fg="#FF0000")
+            self.camera_label.configure(text=f"Error: {message}", text_color="#FF0000")
         # Disable Start button on error
         self._set_start_button_enabled(False)
         self.camera_initialized = False
@@ -286,7 +286,7 @@ class LiveView(tk.Frame):
                         self.camera_initialized = False
                         self._set_start_button_enabled(False)
                         if self.camera_label:
-                            self.camera_label.configure(text="Camera disconnected", fg="#FF0000")
+                            self.camera_label.configure(text="Camera disconnected", text_color="#FF0000")
                 if self.backend_initialized and not self.ui_bridge.is_processing_active():
                     backend_error = self.ui_bridge.get_last_error() or "Backend stopped unexpectedly."
                     self._show_error(backend_error)
@@ -344,7 +344,7 @@ class LiveView(tk.Frame):
             
             # Convert to PIL Image then PhotoImage
             image = Image.fromarray(resized)
-            self.current_photo = ImageTk.PhotoImage(image=image)
+            self.current_photo = ctk.CTkImage(light_image=image, size = image.size)
             
             # Update label
             self.camera_label.configure(image=self.current_photo, text="")
@@ -439,7 +439,7 @@ class LiveView(tk.Frame):
         self.backend_initialized = False
         # Reset camera display
         if self.camera_label:
-            self.camera_label.configure(text="No Camera", image="", fg=widget_background)
+            self.camera_label.configure(text="No Camera", image="", text_color=widget_background)
         
         # Reset camera initialization status
         self.camera_initialized = False
@@ -458,17 +458,17 @@ class LiveView(tk.Frame):
         
         if enabled:
             # Enable button - normal appearance
-            self.start_button_frame.configure(bg="#FFFFFF", cursor="hand2")
-            self.start_button_frame._button_label.configure(bg="#FFFFFF", fg=widget_background, cursor="hand2")
+            self.start_button_frame.configure(fg_color="#FFFFFF", cursor="hand2")
+            self.start_button_frame._button_label.configure(fg_color="#FFFFFF", text_color=widget_background, cursor="hand2")
         else:
             # Disable button - greyed out appearance
             disabled_color = '#6B6560'
-            self.start_button_frame.configure(bg=disabled_color, cursor="")
-            self.start_button_frame._button_label.configure(bg=disabled_color, fg="#FFFFFF", cursor="")
+            self.start_button_frame.configure(fg_color=disabled_color, cursor="")
+            self.start_button_frame._button_label.configure(fg_color=disabled_color, text_color="#FFFFFF", cursor="")
 
-    def _create_checkbox(self, parent: tk.Widget, text: str, variable: tk.BooleanVar, row: int, on_toggle: Optional[Callable[[], None]] = None) -> None:
+    def _create_checkbox(self, parent: Any, text: str, variable: ctk.BooleanVar, row: int, on_toggle: Optional[Callable[[], None]] = None) -> None:
         """Create a styled checkbox with a clickable box that turns accent pink."""
-        checkbox_frame = tk.Frame(parent, bg=camera_placeholder_color)
+        checkbox_frame = ctk.CTkFrame(parent, fg_color=camera_placeholder_color)
         checkbox_frame.grid(row=row, column=0, sticky="w", pady=(0, 6))
         
         checkbox_canvas = tk.Canvas(
@@ -483,16 +483,16 @@ class LiveView(tk.Frame):
         checkbox_canvas.pack(side="left", padx=(0, 8))
         checkbox_canvas.create_rectangle(1, 1, 19, 19, outline=widget_background, width=2, fill="#FFFFFF", tags="border")
         
-        label = tk.Label(
+        label = ctk.CTkLabel(
             checkbox_frame,
             text=text,
-            bg=camera_placeholder_color,
-            fg=widget_background,
+            fg_color=camera_placeholder_color,
+            text_color=widget_background,
             font=("Poppins", 12, "bold"),
         )
         label.pack(side="left")
         
-        def toggle_checkbox(_e: tk.Event = None) -> None:
+        def toggle_checkbox(_e: Any = None) -> None:
             variable.set(not variable.get())
             update_checkbox_appearance()
             if callable(on_toggle):
@@ -517,7 +517,7 @@ class LiveView(tk.Frame):
         variable.trace_add("write", lambda *args: update_checkbox_appearance())
         update_checkbox_appearance()
 
-    def _create_styled_button(self, parent: tk.Widget, text: str, command: Callable[[], None], row: int, sticky: str = "ew", return_frame: bool = False):
+    def _create_styled_button(self, parent: Any, text: str, command: Callable[[], None], row: int, sticky: str = "ew", return_frame: bool = False):
         """Create a styled button with accent pink hover effect.
         
         Args:
@@ -531,25 +531,25 @@ class LiveView(tk.Frame):
         Returns:
             button_frame if return_frame is True, None otherwise
         """
-        button_frame = tk.Frame(
+        button_frame = ctk.CTkFrame(
             parent,
-            bg="#FFFFFF",
-            highlightthickness=2,
-            highlightbackground=widget_background,
-            highlightcolor=widget_background,
-            bd=0,
-            padx=12,
-            pady=6,
+            fg_color="#FFFFFF",
+            #highlightthickness=2,
+            #highlightbackground=widget_background,
+            #highlightcolor=widget_background,
+            border_width=0,
+            #padx=12,
+            #pady=6,
             cursor="hand2",
         )
         button_frame.grid(row=row, column=0, sticky=sticky, pady=(0, 6))
         parent.columnconfigure(0, weight=1)
         
-        button_label = tk.Label(
+        button_label = ctk.CTkLabel(
             button_frame,
             text=text,
-            bg="#FFFFFF",
-            fg=widget_background,
+            fg_color="#FFFFFF",
+            text_color=widget_background,
             font=("Poppins", 16, "bold"),
         )
         button_label.pack()
@@ -559,22 +559,22 @@ class LiveView(tk.Frame):
         button_frame._command = command
         button_frame._enabled = True
         
-        def on_enter(_e: tk.Event) -> None:
+        def on_enter(_e: Any) -> None:
             if button_frame._enabled:
-                button_frame.configure(bg=menu_hover_color, highlightbackground=widget_background, highlightcolor=widget_background)
-                button_label.configure(bg=menu_hover_color)
+                button_frame.configure(fg_color=menu_hover_color)# highlightbackground=widget_background, highlightcolor=widget_background)
+                button_label.configure(fg_color=menu_hover_color)
         
-        def on_leave(_e: tk.Event) -> None:
+        def on_leave(_e: Any) -> None:
             if button_frame._enabled:
-                button_frame.configure(bg="#FFFFFF", highlightbackground=widget_background, highlightcolor=widget_background)
-                button_label.configure(bg="#FFFFFF")
+                button_frame.configure(fg_color="#FFFFFF")# highlightbackground=widget_background, highlightcolor=widget_background)
+                button_label.configure(fg_color="#FFFFFF")
         
-        def on_click(_e: tk.Event) -> None:
+        def on_click(_e: Any) -> None:
             if button_frame._enabled and command:
                 command()
-                button_frame.configure(bg=menu_hover_color)
-                button_label.configure(bg=menu_hover_color)
-                button_frame.after(100, lambda: button_frame.configure(bg="#FFFFFF") or button_label.configure(bg="#FFFFFF"))
+                button_frame.configure(fg_color=menu_hover_color)
+                button_label.configure(fg_color=menu_hover_color)
+                button_frame.after(100, lambda: button_frame.configure(fg_color="#FFFFFF") or button_label.configure(fg_color="#FFFFFF"))
         
         button_frame.bind("<Enter>", on_enter)
         button_frame.bind("<Leave>", on_leave)
@@ -596,8 +596,8 @@ class LiveView(tk.Frame):
 
 
 def main() -> None:
-    root = tk.Tk()
-    root.configure(bg=widget_background)
+    root = ctk.CTk()
+    root.configure(fg_color=widget_background)
     view = LiveView(root)
     view.pack(fill="both", expand=True)
     root.mainloop()

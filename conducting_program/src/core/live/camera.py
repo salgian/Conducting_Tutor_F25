@@ -22,8 +22,12 @@ class CameraManager:
     def initialize_camera(self):
         """Initialize camera with best available resolution."""
         # Initialize with DirectShow backend for better control
-        print("test1")
-        self.cap = cv2.VideoCapture(self.camera_index, cv2.CAP_DSHOW)
+        print("Selected source:", repr(self.camera_index))
+        print("Source type:", type(self.camera_index))
+        if self.camera_index == 0:
+            self.cap = cv2.VideoCapture(self.camera_index, cv2.CAP_DSHOW)
+        else:
+            self.cap = cv2.VideoCapture(self.camera_index)
         if not self.cap.isOpened():
             # Fallback to default backend
             self.cap = cv2.VideoCapture(self.camera_index)

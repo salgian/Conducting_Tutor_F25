@@ -1,8 +1,8 @@
-import tkinter as tk
-from typing import Callable, Optional
+import customtkinter as ctk
+from typing import Callable, Optional, Any
 import cv2
 import numpy as np
-from PIL import Image, ImageTk
+from PIL import Image
 
 from src.core.shared.settings import Settings
 from src.core.shared.ui_bridge import UIBridge
@@ -14,16 +14,16 @@ menu_hover_color = "#E0AFA0"
 camera_placeholder_color = '#8A817C'
 
 
-class ActiveView(tk.Frame):
+class ActiveView(ctk.CTkFrame):
     """Active conducting view with full-width camera and live metrics."""
 
     def __init__(
         self,
-        master: tk.Misc | None = None,
+        master: Any | None = None,
         on_end: Optional[Callable[[], None]] = None,
         ui_bridge: Optional[UIBridge] = None,
     ) -> None:
-        super().__init__(master=master, bg=widget_background)
+        super().__init__(master=master, fg_color=widget_background)
         self._on_end = on_end
         self.ui_bridge = ui_bridge
         self.settings = Settings()  # Get singleton instance
@@ -33,99 +33,101 @@ class ActiveView(tk.Frame):
         self.metrics_update_id = None
 
         self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=0)
         self.rowconfigure(1, weight=1)
         self.rowconfigure(2, weight=0)
 
         # Header (matching live view structure for consistent positioning)
-        header = tk.Frame(self, bg=widget_background)
+        header = ctk.CTkFrame(self, fg_color=widget_background, height=100)
         header.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 0))
         header.columnconfigure(0, weight=1)
         header.columnconfigure(1, weight=1)
-
+        
         # Spacer to match back button space in live view
-        spacer = tk.Frame(header, bg=widget_background)
+        spacer = ctk.CTkFrame(header, fg_color=widget_background, width=1, height=1)
         spacer.grid(row=0, column=0, sticky="w")
+        spacer.grid_propagate(False)
 
-        title = tk.Label(header, text="Live", bg=widget_background, fg=widget_font_color, font=widget_title_font, anchor="e")
+        title = ctk.CTkLabel(header, text="Live", fg_color=widget_background, text_color=widget_font_color, font=widget_title_font, anchor="e")
         title.grid(row=0, column=1, sticky="e")
 
         # Camera area (full width with padding)
-        camera_frame = tk.Frame(self, bg=camera_placeholder_color)
+        camera_frame = ctk.CTkFrame(self, fg_color=camera_placeholder_color)
         camera_frame.grid(row=1, column=0, sticky="nsew", padx=12, pady=(12, 12))
         camera_frame.rowconfigure(0, weight=1)
         camera_frame.columnconfigure(0, weight=1)
 
         # Camera display label
-        self.camera_label = tk.Label(
+        self.camera_label = ctk.CTkLabel(
             camera_frame,
             text="No Camera",
-            bg=camera_placeholder_color,
-            fg=widget_background,
+            fg_color=camera_placeholder_color,
+            text_color=widget_background,
             font=("Poppins", 20, "bold"),
         )
         self.camera_label.grid(row=0, column=0)
 
         # Footer with metrics and end button
-        footer = tk.Frame(self, bg=widget_background)
+        footer = ctk.CTkFrame(self, fg_color=widget_background)
         footer.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 8))
         footer.rowconfigure(0, minsize=20)  # Match footer height with live view
         footer.columnconfigure(0, weight=1)
         footer.columnconfigure(1, weight=0)
 
         # Metrics on the left
-        metrics_frame = tk.Frame(footer, bg=widget_background)
+        metrics_frame = ctk.CTkFrame(footer, fg_color=widget_background)
         metrics_frame.grid(row=0, column=0, sticky="w")
 
-        self.time_label = tk.Label(
+        self.time_label = ctk.CTkLabel(
             metrics_frame,
             text="Time: 00:00",
-            bg=widget_background,
-            fg=widget_font_color,
+            fg_color=widget_background,
+            text_color=widget_font_color,
             font=("Poppins", 12, "bold"),
         )
         self.time_label.pack(side="left", padx=(0, 20))
 
-        self.bpm_label = tk.Label(
+        self.bpm_label = ctk.CTkLabel(
             metrics_frame,
             text="Average BPM 000",
-            bg=widget_background,
-            fg=widget_font_color,
+            fg_color=widget_background,
+            text_color=widget_font_color,
             font=("Poppins", 12, "bold"),
         )
         self.bpm_label.pack(side="left", padx=(0, 20))
 
-        self.ts_label = tk.Label(
+        self.ts_label = ctk.CTkLabel(
             metrics_frame,
             text="Time Sig 4/4",
-            bg=widget_background,
-            fg=widget_font_color,
+            fg_color=widget_background,
+            text_color=widget_font_color,
             font=("Poppins", 12, "bold"),
         )
         self.ts_label.pack(side="left")
 
         # End button on the right
-        end_frame = tk.Frame(
+        end_frame = ctk.CTkFrame(
             footer,
-            bg=widget_background,
-            highlightthickness=2,
-            highlightbackground=widget_font_color,
-            highlightcolor=widget_font_color,
-            bd=0,
-            padx=12,
-            pady=2,
+            fg_color=widget_background,
+            #highlightthickness=2,
+            #highlightbackground=widget_font_color,
+            #highlightcolor=widget_font_color,
+            border_width=0,
+            #padx=12,
+            #pady=2,
             cursor="hand2",
         )
         end_frame.grid(row=0, column=1, sticky="e")
-        end_label = tk.Label(end_frame, text="End", bg=widget_background, fg=widget_font_color, font=("Poppins", 16, "bold"))
+        end_label = ctk.CTkLabel(end_frame, text="End", fg_color=widget_background, text_color=widget_font_color, font=("Poppins", 16, "bold"))
         end_label.pack()
 
-        def on_enter(_e: tk.Event) -> None:
-            end_frame.configure(bg=menu_hover_color)
-            end_label.configure(bg=menu_hover_color, text="End")
+        def on_enter(_e: Any) -> None:
+            end_frame.configure(fg_color=menu_hover_color)
+            end_label.configure(fg_color=menu_hover_color, text="End")
 
-        def on_leave(_e: tk.Event) -> None:
-            end_frame.configure(bg=widget_background)
-            end_label.configure(bg=widget_background, text="End")
+        def on_leave(_e: Any) -> None:
+            end_frame.configure(fg_color=widget_background)
+            end_label.configure(fg_color=widget_background, text="End")
 
         end_frame.bind("<Enter>", on_enter)
         end_frame.bind("<Leave>", on_leave)
@@ -138,6 +140,7 @@ class ActiveView(tk.Frame):
         self.update_time_signature(self.settings.get_time_signature())
         self.update_bpm(self.settings.get_beats_per_minute())
 
+       
     def start_metrics_updates(self) -> None:
         """Start periodic frame and metrics updates."""
         self._start_frame_updates()
@@ -197,7 +200,7 @@ class ActiveView(tk.Frame):
             camera_frame.update_idletasks()
             width = camera_frame.winfo_width()
             height = camera_frame.winfo_height()
-            
+           
             if width <= 1 or height <= 1:
                 # Frame not ready yet, try again later
                 return
@@ -224,7 +227,7 @@ class ActiveView(tk.Frame):
             
             # Convert to PIL Image then PhotoImage
             image = Image.fromarray(resized)
-            self.current_photo = ImageTk.PhotoImage(image=image)
+            self.current_photo = ctk.CTkImage(light_image=image, size = image.size)
             
             # Update label
             self.camera_label.configure(image=self.current_photo, text="")
@@ -251,10 +254,10 @@ class ActiveView(tk.Frame):
             except Exception:
                 pass
 
-
+    
 def main() -> None:
-    root = tk.Tk()
-    root.configure(bg=widget_background)
+    root = ctk.CTk()
+    root.configure(fg_color=widget_background)
     view = ActiveView(root)
     view.pack(fill="both", expand=True)
     root.mainloop()

@@ -1,6 +1,5 @@
-import tkinter as tk
-import tkinter.ttk as ttk
-from typing import Callable, Optional
+import customtkinter as ctk
+from typing import Callable, Optional, Any
 
 from src.core.shared.settings import Settings
 from src.core.shared.ui_bridge import UIBridge
@@ -13,7 +12,7 @@ menu_hover_color = "#E0AFA0"  # pinky color used elsewhere
 camera_placeholder_color = '#8A817C'  # lighter grey for container
 
 
-class SettingsView(tk.Frame):
+class SettingsView(ctk.CTkFrame):
     """Settings view embedded as a Frame for in-window navigation.
 
     Owns its header (Back on the left with hover; title on the right) and
@@ -22,11 +21,11 @@ class SettingsView(tk.Frame):
 
     def __init__(
         self,
-        master: tk.Misc | None = None,
+        master: Any | None = None,
         on_back: Optional[Callable[[], None]] = None,
         ui_bridge: Optional[UIBridge] = None
     ) -> None:
-        super().__init__(master=master, bg=widget_background)
+        super().__init__(master=master, fg_color=widget_background)
         self._on_back = on_back
         self.ui_bridge = ui_bridge
         self.settings = Settings()  # Get singleton instance
@@ -35,39 +34,39 @@ class SettingsView(tk.Frame):
         self.rowconfigure(1, weight=1)
 
         # Header row with Back (left) and Settings title (right)
-        header = tk.Frame(self, bg=widget_background)
+        header = ctk.CTkFrame(self, fg_color=widget_background)
         header.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(12, 0), padx=12)
         header.columnconfigure(0, weight=1)
         header.columnconfigure(1, weight=1)
 
-        back_frame = tk.Frame(
+        back_frame = ctk.CTkFrame(
             header,
-            bg=widget_background,
-            highlightthickness=2,
-            highlightbackground=widget_font_color,
-            highlightcolor=widget_font_color,
-            bd=0,
-            padx=12,
-            pady=6,
+            fg_color=widget_background,
+            #highlightthickness=2,
+            #highlightbackground=widget_font_color,
+            #highlightcolor=widget_font_color,
+            border_width=0,
+            #padx=12,
+            #pady=6,
             cursor="hand2",
         )
         back_frame.grid(row=0, column=0, sticky="w")
-        back_label = tk.Label(
+        back_label = ctk.CTkLabel(
             back_frame,
             text="Back",
-            bg=widget_background,
-            fg=widget_font_color,
+            fg_color=widget_background,
+            text_color=widget_font_color,
             font=("Poppins", 16, "bold"),
         )
         back_label.pack()
 
-        def on_enter(_e: tk.Event) -> None:
-            back_frame.configure(bg=menu_hover_color)
-            back_label.configure(bg=menu_hover_color, text="<- Back")
+        def on_enter(_e: Any) -> None:
+            back_frame.configure(fg_color=menu_hover_color)
+            back_label.configure(fg_color=menu_hover_color, text="<- Back")
 
-        def on_leave(_e: tk.Event) -> None:
-            back_frame.configure(bg=widget_background)
-            back_label.configure(bg=widget_background, text="Back")
+        def on_leave(_e: Any) -> None:
+            back_frame.configure(fg_color=widget_background)
+            back_label.configure(fg_color=widget_background, text="Back")
 
         back_frame.bind("<Enter>", on_enter)
         back_frame.bind("<Leave>", on_leave)
@@ -76,11 +75,11 @@ class SettingsView(tk.Frame):
         back_frame.bind("<Button-1>", lambda _e: self._fire_back())
         back_label.bind("<Button-1>", lambda _e: self._fire_back())
 
-        title = tk.Label(
+        title = ctk.CTkLabel(
             header,
             text="Settings",
-            bg=widget_background,
-            fg=widget_font_color,
+            fg_color=widget_background,
+            text_color=widget_font_color,
             font=widget_title_font,
             anchor="e",
         )
@@ -90,91 +89,91 @@ class SettingsView(tk.Frame):
         # contains only the content area below the header row.
 
         # Container with grey background for consistency with live page
-        container = tk.Frame(self, bg=camera_placeholder_color)
+        container = ctk.CTkFrame(self, fg_color=camera_placeholder_color)
         container.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=20, pady=20)
         container.columnconfigure(0, weight=1)
         
         # Content area inside container
-        content = tk.Frame(container, bg=camera_placeholder_color)
+        content = ctk.CTkFrame(container, fg_color=camera_placeholder_color)
         content.grid(row=0, column=0, sticky="nw", padx=20, pady=20)
 
         # Labels and entries
-        bpm_label = tk.Label(
-            content, text="Default BPM", bg=camera_placeholder_color, fg=widget_background, font=("Poppins", 14, "bold")
+        bpm_label = ctk.CTkLabel(
+            content, text="Default BPM", fg_color=camera_placeholder_color, text_color=widget_background, font=("Poppins", 14, "bold")
         )
         bpm_label.grid(row=0, column=0, sticky="w", pady=(0, 6))
-        self.bpm_var = tk.StringVar()
-        bpm_entry = ttk.Entry(content, width=24, textvariable=self.bpm_var)
+        self.bpm_var = ctk.StringVar()
+        bpm_entry = ctk.CTkEntry(content, width=40, textvariable=self.bpm_var)
         bpm_entry.grid(row=1, column=0, sticky="w", pady=(0, 14))
         bpm_entry.bind("<FocusOut>", lambda _e: self._save_bpm())
         bpm_entry.bind("<Return>", lambda _e: self._save_bpm())
 
-        ts_label = tk.Label(
-            content, text="Default Time Signature", bg=camera_placeholder_color, fg=widget_background, font=("Poppins", 14, "bold")
+        ts_label = ctk.CTkLabel(
+            content, text="Default Time Signature", fg_color=camera_placeholder_color, text_color=widget_background, font=("Poppins", 14, "bold")
         )
         ts_label.grid(row=2, column=0, sticky="w", pady=(0, 6))
-        self.ts_var = tk.StringVar()
-        ts_entry = ttk.Entry(content, width=24, textvariable=self.ts_var)
+        self.ts_var = ctk.StringVar()
+        ts_entry = ctk.CTkEntry(content, width=40, textvariable=self.ts_var)
         ts_entry.grid(row=3, column=0, sticky="w", pady=(0, 14))
         ts_entry.bind("<FocusOut>", lambda _e: self._save_ts())
         ts_entry.bind("<Return>", lambda _e: self._save_ts())
 
-        camera_label = tk.Label(
-            content, text="Camera Path", bg=camera_placeholder_color, fg=widget_background, font=("Poppins", 14, "bold")
+        camera_label = ctk.CTkLabel(
+            content, text="Camera Path", fg_color=camera_placeholder_color, text_color=widget_background, font=("Poppins", 14, "bold")
         )
         camera_label.grid(row=4, column=0, sticky="w", pady=(0, 6))
-        self.camera_var = tk.StringVar()
-        camera_entry = ttk.Entry(content, width=24, textvariable=self.camera_var)
+        self.camera_var = ctk.StringVar()
+        camera_entry = ctk.CTkEntry(content, width=40, textvariable=self.camera_var)
         camera_entry.grid(row=5, column=0, sticky="w")
         camera_entry.bind("<FocusOut>", lambda _e: self._save_camera())
         camera_entry.bind("<Return>", lambda _e: self._save_camera())
 
-        toggles_label = tk.Label(
-            content, text="Live Feature Toggles", bg=camera_placeholder_color, fg=widget_background, font=("Poppins", 14, "bold")
+        toggles_label = ctk.CTkLabel(
+            content, text="Live Feature Toggles", fg_color=camera_placeholder_color, text_color=widget_background, font=("Poppins", 14, "bold")
         )
         toggles_label.grid(row=6, column=0, sticky="w", pady=(14, 6))
 
-        self.metronome_enabled_var = tk.BooleanVar()
-        self.markers_enabled_var = tk.BooleanVar()
-        self.conducting_hand_marker_enabled_var = tk.BooleanVar()
+        self.metronome_enabled_var = ctk.BooleanVar()
+        self.markers_enabled_var = ctk.BooleanVar()
+        self.conducting_hand_marker_enabled_var = ctk.BooleanVar()
 
-        metronome_toggle = tk.Checkbutton(
+        metronome_toggle = ctk.CTkCheckBox(
             content,
             text="Metronome",
             variable=self.metronome_enabled_var,
-            bg=camera_placeholder_color,
-            fg=widget_background,
-            selectcolor="#D9D9D9",
-            activebackground=camera_placeholder_color,
-            activeforeground=widget_background,
+            fg_color=camera_placeholder_color,
+            text_color=widget_background,
+            #selectcolor="#D9D9D9",
+            hover_color=camera_placeholder_color,
+            #activeforeground=widget_background,
             font=("Poppins", 12, "bold"),
             command=self._save_feature_toggles,
         )
         metronome_toggle.grid(row=7, column=0, sticky="w")
 
-        markers_toggle = tk.Checkbutton(
+        markers_toggle = ctk.CTkCheckBox(
             content,
             text="Beat Markers",
             variable=self.markers_enabled_var,
-            bg=camera_placeholder_color,
-            fg=widget_background,
-            selectcolor="#D9D9D9",
-            activebackground=camera_placeholder_color,
-            activeforeground=widget_background,
+            fg_color=camera_placeholder_color,
+            text_color=widget_background,
+            #selectcolor="#D9D9D9",
+            hover_color=camera_placeholder_color,
+            #activeforeground=widget_background,
             font=("Poppins", 12, "bold"),
             command=self._save_feature_toggles,
         )
         markers_toggle.grid(row=8, column=0, sticky="w")
 
-        hand_marker_toggle = tk.Checkbutton(
+        hand_marker_toggle = ctk.CTkCheckBox(
             content,
             text="Conducting Hand Marker",
             variable=self.conducting_hand_marker_enabled_var,
-            bg=camera_placeholder_color,
-            fg=widget_background,
-            selectcolor="#D9D9D9",
-            activebackground=camera_placeholder_color,
-            activeforeground=widget_background,
+            fg_color=camera_placeholder_color,
+            text_color=widget_background,
+            #selectcolor="#D9D9D9",
+            hover_color=camera_placeholder_color,
+            #activeforeground=widget_background,
             font=("Poppins", 12, "bold"),
             command=self._save_feature_toggles,
         )
@@ -183,13 +182,13 @@ class SettingsView(tk.Frame):
         # Load current settings
         self._load_settings()
 
-        # Match ttk widgets with dark theme background where possible
-        try:
-            style = ttk.Style(self)
-            style.theme_use(style.theme_use())
-            style.configure("TEntry", fieldbackground="#D9D9D9")
-        except tk.TclError:
-            pass
+        # Match ctk widgets with dark theme background where possible
+        #try:
+        #    style = ctk.Style(self)
+        #    style.theme_use(style.theme_use())
+        #    style.configure("TEntry", fieldbackground="#D9D9D9")
+        #except ctk.TclError:
+        #    pass
 
     def _load_settings(self) -> None:
         """Load current settings values into UI."""
@@ -267,8 +266,8 @@ class SettingsView(tk.Frame):
 
 
 def main() -> None:
-    root = tk.Tk()
-    root.configure(bg=widget_background)
+    root = ctk.CTk()
+    root.configure(fg_color=widget_background)
     view = SettingsView(root)
     view.pack(fill="both", expand=True)
     root.mainloop()

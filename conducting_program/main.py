@@ -9,12 +9,12 @@ project_root = Path(__file__).parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-import tkinter as tk
+import customtkinter as ctk
 from src.views._window import MainWindow
 
 def main():
     """Launch the Conducting Tutor UI application."""
-    root = tk.Tk()
+    root = ctk.CTk()
     MainWindow(root)
     root.mainloop()
 

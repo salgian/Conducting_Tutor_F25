@@ -1,5 +1,5 @@
-import tkinter as tk
-import tkinter.ttk as ttk
+import customtkinter as ctk
+#import tkinter.ttk as ttk
 from .home import HomeView
 from .settings import SettingsView
 from .live import LiveView
@@ -20,7 +20,7 @@ menu_hover_color = "#E0AFA0"  # shared accent color
 class MainWindow:
     """Main window that manages UI initialization and navigation between views."""
 
-    def __init__(self, root: tk.Tk) -> None:
+    def __init__(self, root: ctk.CTk) -> None:
         self.root = root
         self.settings = Settings()  # Get singleton instance
         self.ui_bridge = UIBridge(self.settings)  # Create UI bridge
@@ -48,7 +48,7 @@ class MainWindow:
 
     def _configure_root(self) -> None:
         self.root.title("Conducting Tutor")
-        self.root.configure(bg=widget_background)
+        self.root.configure(fg_color=widget_background)
         # Make the window reasonably sized and resizable; also set a stable initial size
         self.root.geometry("900x600")
         self.root.minsize(720, 480)
@@ -56,21 +56,21 @@ class MainWindow:
         self.root.rowconfigure(0, weight=1)
 
     def _build_layout(self) -> None:
-        container = tk.Frame(self.root, bg=widget_background)
+        container = ctk.CTkFrame(self.root, fg_color=widget_background)
         container.grid(row=0, column=0, sticky="nsew")
         container.columnconfigure(0, weight=1)
         container.rowconfigure(0, weight=1)
         self.container = container
 
         # View frames (lazy initialization)
-        self.home_frame: tk.Frame | None = None
-        self.settings_frame: tk.Frame | None = None
-        self.live_frame: tk.Frame | None = None
-        self.edit_frame: tk.Frame | None = None
-        self.active_frame: tk.Frame | None = None
-        self.stats_frame: tk.Frame | None = None
-        self.video_frame: tk.Frame | None = None
-        self.video_process_frame: tk.Frame | None = None
+        self.home_frame: ctk.CTkFrame | None = None
+        self.settings_frame: ctk.CTkFrame | None = None
+        self.live_frame: ctk.CTkFrame | None = None
+        self.edit_frame: ctk.CTkFrame | None = None
+        self.active_frame: ctk.CTkFrame | None = None
+        self.stats_frame: ctk.CTkFrame | None = None
+        self.video_frame: ctk.CTkFrame | None = None
+        self.video_process_frame: ctk.CTkFrame | None = None
         
         # Navigation tracking
         self.nav_history: list[str] = []
@@ -467,7 +467,7 @@ class MainWindow:
         self.current_view = "home"
 
 def main() -> None:
-    root = tk.Tk()
+    root = ctk.CTk()
     MainWindow(root)
     root.mainloop()
 
